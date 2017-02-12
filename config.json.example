@@ -1,0 +1,6 @@
+{ 
+	"accessKeyId": "put AWS IAM ID here", 
+	"secretAccessKey": "put AWS IAM AccessKey here", 
+	"region": "put your region here",
+	"sqsQueueURL": "put your FIFO Queue URL here"
+}
