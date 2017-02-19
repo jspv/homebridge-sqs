@@ -5,3 +5,5 @@
 # Make sure to not commit my config.json as it has secret keys. 
 config.json
 node_modules/
+dothomebridge/accessories/
+dothomebridge/persist/
