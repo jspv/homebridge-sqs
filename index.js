@@ -5,7 +5,9 @@ var SQSWorker = require('jspsqs-worker');
 var Service, Characteristic, HomebridgeAPI;
 
 // Number of seconds before resetetting motion sensors
-const DEFAULT_NO_MOTION_TIME = 60;
+// time is in seconds
+const DEFAULT_NO_MOTION_TIME = 60,
+      DEFAULT_MAX_EVENT_DELAY = 90;
 
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
@@ -106,10 +108,11 @@ function AWSSQSPlatformInit(log, config, api) {
             // is expected to be the beginning of the string up to the comma;
             // the time is expected to be in ISO8601 format.
 
-            // Also compare the current time vs. the reported time from alarm.com
-            // The expected format from alarm.com is for the message to end with
-            // the time the event occurred in HH:MM [ap]m in the Eastern Timezone
-            // (set in alarm.com) - no date.
+            // if useendtime is set, also compare the current time vs. the
+            // at the end of the messate (used by alarm.com)
+            // The expected format is for the message to end with
+            // the time the event occurred in HH:MM [ap]m in the Timezone
+            // specified in endtimeIANA_TZ.  no date.
 
             // TODO - Consider the case when crossing midnight - idea: if the
             // eventtime is within x minutes before midnight, check the date of
@@ -148,8 +151,10 @@ function AWSSQSPlatformInit(log, config, api) {
             // if the difference between when the event occured and the time this
             // program recives it is > maxEventDelay, don't process the message.
 
-            if (parseInt((datetime - eventdatetime) / 1000) > config.accessories[i].maxEventDelay) {
-                this.log("Message too old:", parseInt((datetime - msgdatetime) / 1000), "vs", config.accessories[i].maxEventDelay);
+            var maxEventDelay = config.accessories[i].maxEventDelay || DEFAULT_MAX_EVENT_DELAY;
+
+            if (parseInt((datetime - eventdatetime) / 1000) > maxEventDelay) {
+                this.log("Message too old:", parseInt((datetime - msgdatetime) / 1000), "vs", maxEventDelay);
                 this.log("eventdatetime  : ", eventdatetime.toISOString());
                 this.log("msgdatetime   : ", msgdatetime.toISOString());
                 this.log("currentDatetime: ", datetime.toISOString());
@@ -174,11 +179,7 @@ function AWSSQSPlatformInit(log, config, api) {
                                 }
 
                                 config.accessories[i].timeout = setTimeout(
-                                  function (motionService, accessoryconfig) {
-                                    motionService.setCharacteristic(Characteristic.MotionDetected, false);
-                                    // deltee the timeout propery
-                                    delete accessoryconfig.timeout;
-                                  },
+                                  endMotionTimerCallback,
                                   noMotionTimer*1000,
                                   service, config.accessories[i]);
                                 break;
@@ -202,7 +203,7 @@ function AWSSQSPlatformInit(log, config, api) {
         } catch (err) {
             throw err;
         }
-    }
+    } // worker
 }
 
 AWSSQSPlatformInit.prototype = {
@@ -283,6 +284,15 @@ AWSSQSPlatformInit.prototype = {
     },
     xremoveAccessory: function(callback) {
         console.log(accessory.DisplayName, ">>>>> removeAccessory");
-    },
-
+    }
 };
+
+// Callback used by setTimeout to disable MotionSesor after a set period
+// of time
+function endMotionTimerCallback (motionService, accessoryconfig) {
+  // Set motion sensor to false
+  motionService.setCharacteristic(Characteristic.MotionDetected, false);
+
+  // delete the timeout propery
+  delete accessoryconfig.timeout;
+}
