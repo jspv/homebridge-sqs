@@ -1,0 +1,52 @@
+{
+    "bridge": {
+        "name": "MyHomebridge",
+        "username": "AD:21:7D:EE:CE:30",
+        "port": 51826,
+        "pin": "012-34-567"
+    },
+
+    "description": "This is an example configuration for the homebridge-sqs plugin",
+
+    "platforms": [{
+        "platform": "AWSSQSPlatform",
+        "name": "AWS",
+        "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
+        "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY",
+        "AWSregion": "us-east-1",
+        "AWSsqsQueueURL": "https://sqs.us-east-2.amazonaws.com/MYQUEUE/MyQueue.fifo",
+        "accessories": [{
+                "name": "LaundryDoor",
+                "type": "MotionSensor",
+                "matchrex": "The Laundry Door was Opened at",
+                "useendtime": true,
+                "endtimeIANA_TZ": "America/New_York"
+            },
+            {
+                "name": "WebsiteLogin",
+                "type": "MotionSensor",
+                "matchrex": "The Web account was logged into successfully by",
+                "useendtime": true,
+                "endtimeIANA_TZ": "America/New_York",
+                "noMotionTimer": 30
+            },
+            {
+                "name": "FoyerMotion",
+                "type": "MotionSensor",
+                "matchrex": "They Foyer Image Motion was Activated",
+                "useendtime": true,
+                "endtimeIANA_TZ": "America/New_York",
+                "noMotionTimer": 240
+            },
+            {
+                "name": "BarMotion",
+                "type": "MotionSensor",
+                "matchrex": "The Liquor Motion was Activated",
+                "useendtime": true,
+                "endtimeIANA_TZ": "America/New_York",
+                "maxEventDelay": 120,
+                "noMotionTimer": 240
+            }
+        ]
+    }]
+}

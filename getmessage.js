@@ -1,3 +1,5 @@
+// This file is not used in the plugin, it is purely for testing purposes.
+
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 

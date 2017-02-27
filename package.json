@@ -1,21 +1,27 @@
 {
-    "description": "A homebridge plugin that will create a contact sensor accessory for use with automation.",
+    "name": "homebridge-sqs",
+    "description": "A homebridge plugin that will pull messages from an AWS sqs queue and use them to trigger simulated homekit devices.",
+    "version": "0.1.0",
     "devDependencies": {},
     "directories": {},
     "license": "MIT",
     "main": "index.js",
-    "name": "homebridge-sqs",
+    "author": {
+	"name": "Justin Peavey"
+    },
     "keywords": [
-        "homebridge-plugin"
+        "homebridge-plugin",
+	"aws",
+	"sqs",
+	"sensor"
     ],
     "engines": {
-      "node": ">=0.12.0",
-      "homebridge": ">=0.2.0"
+      "node": ">=4.3.2",
+      "homebridge": ">=0.4.16"
     },
     "optionalDependencies": {},
     "readme": "ERROR: No README data found!",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "version": "0.1.0"
+    }
 }

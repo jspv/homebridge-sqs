@@ -244,7 +244,7 @@ AWSSQSPlatformInit.prototype = {
         }
         platform.accessories.push(accessory);
     },
-    xconfigurationRequestHandler: function(callback) {
+    configurationRequestHandler: function(callback) {
         var platform = this;
         platform.log(">>>>> configurationRequestHandler");
     },
@@ -276,13 +276,13 @@ AWSSQSPlatformInit.prototype = {
 
         // register the accessory
         platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
-        this.accessories.push(newAccessory);
+        platform.accessories.push(newAccessory);
         return newAccessory;
     },
-    xupdateAccessoriesReachability: function(callback) {
+    updateAccessoriesReachability: function(callback) {
         console.log(accessory.DisplayName, ">>>>> updateAccessoriesReachability");
     },
-    xremoveAccessory: function(callback) {
+    removeAccessory: function(callback) {
         console.log(accessory.DisplayName, ">>>>> removeAccessory");
     }
 };
