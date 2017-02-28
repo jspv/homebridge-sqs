@@ -24,5 +24,13 @@
   "dependencies": {
     "moment-timezone": "0.5.11",
     "sqs-worker": "0.0.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jspv/homebridge-sqs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jspv/homebridge-sqs/issues"
+  },
+  "homepage": "https://github.com/jspv/homebridge-sqs#readme"
 }
