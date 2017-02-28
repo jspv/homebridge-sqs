@@ -1,27 +1,25 @@
 {
-    "name": "homebridge-sqs",
-    "description": "A homebridge plugin that will pull messages from an AWS sqs queue and use them to trigger simulated homekit devices.",
-    "version": "0.1.0",
-    "devDependencies": {},
-    "directories": {},
-    "license": "MIT",
-    "main": "index.js",
-    "author": {
-	"name": "Justin Peavey"
-    },
-    "keywords": [
-        "homebridge-plugin",
-	"aws",
-	"sqs",
-	"sensor"
-    ],
-    "engines": {
-      "node": ">=4.3.2",
-      "homebridge": ">=0.4.16"
-    },
-    "optionalDependencies": {},
-    "readme": "ERROR: No README data found!",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    }
+  "name": "homebridge-sqs",
+  "description": "A homebridge plugin that will pull messages from an AWS sqs queue and use them to trigger simulated homekit devices.",
+  "version": "0.1.1",
+  "devDependencies": {},
+  "directories": {},
+  "license": "MIT",
+  "main": "index.js",
+  "author": "Justin Peavey",
+  "keywords": [
+    "homebridge-plugin",
+    "aws",
+    "sqs",
+    "sensor"
+  ],
+  "engines": {
+    "node": ">=4.3.2",
+    "homebridge": ">=0.4.16"
+  },
+  "optionalDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {}
 }
