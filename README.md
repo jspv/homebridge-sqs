@@ -22,12 +22,12 @@ to watch for. See sample-config.json in this repository for a sample.
 Fields:
   name: the name of the Motion Sensor Accessory
   type: MotionSensor
-  matchrex: The pattern to look for in the message
-  useendtime: boolean - indicates that there is a timestamp at the end of the message in the format of HH:MM am/pm which should be used as the message timestamp instead of TIMESTAMP at the beginning.  Alarm.com puts these timestamps in their email notifications to indicate the time the event they are reporting on occurred, figured I'd use theirs for
+  * matchrex: The pattern to look for in the message
+  * useendtime: boolean - indicates that there is a timestamp at the end of the message in the format of HH:MM am/pm which should be used as the message timestamp instead of TIMESTAMP at the beginning.  Alarm.com puts these timestamps in their email notifications to indicate the time the event they are reporting on occurred, figured I'd use theirs for
   messages in the queue that were sourced from these events.
-  endtimeIANA_TZ: The timezone the "endtime" stamp is in so that it can be properly converted and compared with the local timezone to determine how old the event actually is.
-  noMotionTimer: seconds of "motion" required before clearing the MotionSensor
-  maxEventDelay: seconds specifying the maximum amount of time between the current time and either TIMEZONE or the "endtime" timestamp.  If maxEventDelay is exceeded, the message is considered "too old" and not processed.  
+  * endtimeIANA_TZ: The timezone the "endtime" stamp is in so that it can be properly converted and compared with the local * timezone to determine how old the event actually is.
+  * noMotionTimer: seconds of "motion" required before clearing the MotionSensor
+  * maxEventDelay: seconds specifying the maximum amount of time between the current time and either TIMEZONE or the "endtime" timestamp.  If maxEventDelay is exceeded, the message is considered "too old" and not processed.  
 
 
 Configuration sample:
@@ -78,7 +78,13 @@ Configuration sample:
 ```
 
 ## Credits and apologies
-This is my first attempt at writing a homebridge plugin and close to my first time using node.js/javascript.  Many plugins and stackoverflow pages were read as I looked up different ways to solve problems, unfortunately too many to note - but in particular ....
+This is my first attempt at writing a homebridge plugin and close to my first time using node.js/javascript.  Many plugins and stackoverflow pages were read as I looked up different ways to solve problems, unfortunately too many to note - but in particular:
+* Clearly nfarina's [homebridge] (https://github.com/nfarina/homebridge) which makes this all possible and in particular the sample platform code.
+* Christian Tellnes' [sqs-worker](https://github.com/tellnes/sqs-worker) which I modified slightly for this project.  Initially started writing my own, but found his was much more elegant.
+* Rudders' [homebridge-wemo](https://github.com/rudders/homebridge-wemo), good example code and easy to read.  
+
+## TODO
+* Change SQS message format to json for more flexibility (requires me to rewrite my upstream)
 
 ## License
 This work is licensed under the MIT license. See [license](LICENSE) for more details.

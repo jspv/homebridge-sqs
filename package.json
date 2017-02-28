@@ -21,5 +21,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {}
+  "dependencies": {
+    "moment-timezone": "0.5.11",
+    "sqs-worker": "0.0.2"
+  }
 }
