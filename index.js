@@ -1,7 +1,10 @@
 // Load moment-timezone for handling of the timezone offset properly
 var moment = require('moment-timezone');
 // setup access to the queue
-var SQSWorker = require('jspsqs-worker');
+
+// uncomment below to use debug version of sqs-worker
+SQSWorker = require('./lib/jspsqs-worker');
+// var SQSWorker = require('sqs-worker');
 var Service, Characteristic, HomebridgeAPI;
 
 // Number of seconds before resetetting motion sensors
@@ -167,6 +170,7 @@ function AWSSQSPlatformInit(log, config, api) {
                     if (platform.accessories[j].displayName === config.accessories[i].name) {
                         switch (config.accessories[i].type) {
                             case "MotionSensor":
+
                                 var service = platform.accessories[j].getService(Service.MotionSensor);
                                 // set to true
                                 service.setCharacteristic(Characteristic.MotionDetected, true);
@@ -183,6 +187,7 @@ function AWSSQSPlatformInit(log, config, api) {
                                   noMotionTimer*1000,
                                   service, config.accessories[i]);
                                 break;
+
                             default:
                                 // This should never happen
                                 platfor.log("Can't find a match for what do do with accessory type " + config.accessories[i].type + " in config.json");
@@ -192,6 +197,7 @@ function AWSSQSPlatformInit(log, config, api) {
                         break;
                     }
                 }
+
                 if (j === lenj) {
                     throw new Error('Mismatch finding a registered Platform Accessory matching config.json ' + config.accessories[i].name);
                 }
