@@ -1,22 +1,22 @@
 // Load moment-timezone for handling of the timezone offset properly
 var moment = require('moment-timezone');
-// setup access to the queue
 
+// setup access to the queue
 // uncomment below to use debug version of sqs-worker
 SQSWorker = require('./lib/jspsqs-worker');
 // var SQSWorker = require('sqs-worker');
+
 var Service, Characteristic, HomebridgeAPI;
 
-// Number of seconds before resetetting motion sensors
-// time is in seconds
-// MAX_EVENT_DELAY is the time between current time and message time that the
-// message will still be considered valid
+// Set up some defaults
+// NO_MOTION_TIMER: Number of seconds before resetetting motion sensors time is in seconds
+// MAX_EVENT_DELAY: Time between current time and message time that the message will still be considered valid
 const DEFAULT_NO_MOTION_TIME = 60,
     DEFAULT_MAX_EVENT_DELAY = 90;
 
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
-    console.log("DEBUG=(",process.env.DEBUG,")");
+    console.log("DEBUG=(", process.env.DEBUG, ")");
 
     // Accessory must be created from PlatformAccessory Constructor
     Accessory = homebridge.platformAccessory;
@@ -51,13 +51,16 @@ function AWSSQSPlatformInit(log, config, api) {
     // accessory already exists in homebridge and there is no need to add again.
     if (api) {
         this.api = api;
-        // Listen to event "didFinishLaunching", this means homebridge already
-        // finished loading cached accessories
+
+        // Listen to event "didFinishLaunching" which will trigger with homebridge
+        // is finished loading cached accessories
         // Platform Plugin should only register new accessory that doesn't exist
         //  in homebridge after this event or start discover new accessories
+
         this.api.on('didFinishLaunching', function() {
             // Search through accessories in config.json and add any new ones.
             // TODO - remove old ones that aren't in the config.json any longer
+
             for (var i = 0, leni = config.accessories.length; i < leni; i++) {
                 // Check to see if accessory has already been added
                 for (var j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
@@ -73,15 +76,11 @@ function AWSSQSPlatformInit(log, config, api) {
                 // register new accessory
                 switch (config.accessories[i].type) {
                     case "MotionSensor":
-                        this.addMotionSensorAccessory(config.accessories[i].name);
-                        break;
-
                     case "Switch":
-                        this.addSwitchAccessory(config.accessories[i].name);
+                        this.addNewAccessory(config.accessories[i].type, config.accessories[i].name);
                         break;
-
                     default:
-                        log("Found Default:", config.accessories[i].name);
+                        log("Found Unknown Accessory Type:", config.accessories[i].type, config.accessories[i].name);
                         break;
                 }
             }
@@ -106,7 +105,7 @@ function AWSSQSPlatformInit(log, config, api) {
     function worker(message, done) {
         platform.log("Received Message:", message);
         try {
-            // See if message matches an accessory
+            // See if message matches an accessory's matchrex
             for (var i = 0, leni = config.accessories.length; i < leni; i++) {
                 if (message.match(config.accessories[i].matchrex)) {
                     platform.log("Messages matches", config.accessories[i].name);
@@ -114,7 +113,7 @@ function AWSSQSPlatformInit(log, config, api) {
                 }
             }
             if (i === leni) {
-                platform.log("Message doesn't match any Accessory");
+                platform.log("Message doesn't match any known Accessory");
                 done(null, true);
                 return;
             }
@@ -183,20 +182,15 @@ function AWSSQSPlatformInit(log, config, api) {
                     if (platform.accessories[j].displayName === config.accessories[i].name) {
                         switch (config.accessories[i].type) {
                             case "MotionSensor":
-
+                                // set to "MotionDetected"
                                 service = platform.accessories[j].getService(Service.MotionSensor);
-                                // set to true
-                                console.log("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
-                                // service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
-                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
-
+                                service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
+                                // service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
                                 // service.setCharacteristic(Characteristic.MotionDetected, true);
-                                // HHere
 
                                 var noMotionTimer = config.accessories[i].noMotionTimer || DEFAULT_NO_MOTION_TIME;
 
-                                // if a timeout is already in progress, cancel it before seeting
-                                // a new one
+                                // if a timeout is already in progress, cancel it before seeting a new one
                                 if (config.accessories[i].timeout) {
                                     clearTimeout(config.accessories[i].timeout);
                                 }
@@ -208,15 +202,13 @@ function AWSSQSPlatformInit(log, config, api) {
                                 break;
 
                             case "Switch":
-
                                 service =
-                                platform.accessories[j].getService(Service.Switch);
+                                    platform.accessories[j].getService(Service.Switch);
 
                                 // set to off
                                 service.getCharacteristic(Characteristic.On).setValue(false);
                                 //service.setCharacteristic(Characteristic.On, false);
                                 break;
-
 
                             default:
                                 // This should never happen
@@ -233,7 +225,8 @@ function AWSSQSPlatformInit(log, config, api) {
                 }
 
             }
-            // second paramter true/false notes if the message should be deleted (true)
+            // Clear the message from the queue.
+            // second paramter in done(0 true/false notes if the message should be deleted (true)
             // or immediately released for another worker to take up (false)
             done(null, true);
         } catch (err) {
@@ -269,138 +262,120 @@ AWSSQSPlatformInit.prototype = {
             callback();
         }.bind(this));
 
-        // SET - function(newValue, callback(err))
-        if (accessory.getService(Service.MotionSensor)) {
-            accessory.getService(Service.MotionSensor)
-                .getCharacteristic(Characteristic.MotionDetected)
-                .on('set', function(value, callback) {
-                    platform.log("(set):", accessory.displayName, "-> " + value);
-                    callback();
-                });
-
-            // GET - function(callback(err, newValue)
-            accessory.getService(Service.MotionSensor)
-                .getCharacteristic(Characteristic.MotionDetected)
-                .on('get', function(callback) {
-                    platform.log("(get): for", accessory.displayName, "was called");
-                    callback();
-                });
-
-            // CHANGE
-            accessory.getService(Service.MotionSensor)
-                .getCharacteristic(Characteristic.MotionDetected)
-                .on('change', function(info) {
-                    platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
-                });
-
-            // Ensure motion is initialised to false
-            accessory.getService(Service.MotionSensor)
-            .getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-            //.getCharacteristic(Characteristic.MotionDetected).setValue(false);
-                // .setCharacteristic(Characteristic.MotionDetected, false);
-        } else {
-          if (accessory.getService(Service.Switch)) {
-            accessory.getService(Service.Switch)
-              .getCharacteristic(Characteristic.On)
-              .on('set', function(value, callback) {
-                platform.log("(set): for", accessory.displayName, "was called");
-                callback();
-              })
-              .on('change', function(info) {
-                platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
-              });
-          }
-        }
+        // // Put some logging place to see what is called when.
+        // // SET - function(newValue, callback(err))
+        // if (accessory.getService(Service.MotionSensor)) {
+        //     accessory.getService(Service.MotionSensor)
+        //         .getCharacteristic(Characteristic.MotionDetected)
+        //         .on('set', function(value, callback) {
+        //             platform.log("(set):", accessory.displayName, "-> " + value);
+        //             callback();
+        //         });
+        //
+        //     // GET - function(callback(err, newValue)
+        //     accessory.getService(Service.MotionSensor)
+        //         .getCharacteristic(Characteristic.MotionDetected)
+        //         .on('get', function(callback) {
+        //             platform.log("(get): for", accessory.displayName, "was called");
+        //             callback();
+        //         });
+        //
+        //     // CHANGE
+        //     accessory.getService(Service.MotionSensor)
+        //         .getCharacteristic(Characteristic.MotionDetected)
+        //         .on('change', function(info) {
+        //             platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
+        //         });
+        //
+        //     // Ensure motion is initialised to false
+        //     accessory.getService(Service.MotionSensor)
+        //     .getCharacteristic(Characteristic.MotionDetected).updateValue(false);
+        //     //.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+        //         // .setCharacteristic(Characteristic.MotionDetected, false);
+        //
+        // } else {
+        //   if (accessory.getService(Service.Switch)) {
+        //     accessory.getService(Service.Switch)
+        //       .getCharacteristic(Characteristic.On)
+        //       .on('set', function(value, callback) {
+        //         platform.log("(set): for", accessory.displayName, "was called");
+        //         callback();
+        //       })
+        //       .on('change', function(info) {
+        //         platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
+        //       });
+        //   }
+        // }
         platform.accessories.push(accessory);
     },
 
-    configurationRequestHandler: function(callback) {
-        var platform = this;
-        platform.log(">>>>> configurationRequestHandler");
-    },
-
-    addMotionSensorAccessory: function(accessoryName) {
-        var platform = this;
-        platform.log("Adding MotionSensor Accessory: ", accessoryName);
-
-        // // Create the MotionSensor Service object
-        // this.service = new Service.MotionSensor(this.name);
-        // log("Initialized Accessory: ", this.name);
-
-        var uuid;
-        uuid = UUIDGen.generate(accessoryName);
-        var newAccessory = new Accessory(accessoryName, uuid);
-
-        // Make sure you provided a name for service otherwise it may not visible in some HomeKit apps.
-        var motionService = newAccessory.addService(Service.MotionSensor, accessoryName);
-        motionService.getCharacteristic(Characteristic.MotionDetected)
-            .on('set', function(value, callback) {
-                platform.log("(set):", accessoryName, "-> " + value);
-                callback();
-            });
-
-        newAccessory.on('identify', function(paired, callback) {
-            platform.log("(identify):", accessoryName, " Identify!!!");
-            callback();
-        }.bind(this));
-
-        // Ensure motion is initialised to false
-        // motionService.setCharacteristic(Characteristic.MotionDetected, false);
-        // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
-        motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-
-
-        // register the accessory
-        platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
-        platform.accessories.push(newAccessory);
-        newAccessory.updateReachability(true);
-        return newAccessory;
-    },
-
-    addSwitchAccessory: function(accessoryName) {
-        var platform = this;
-        platform.log("Adding Switch Accessory: ", accessoryName);
-
-
-        var uuid;
-        uuid = UUIDGen.generate(accessoryName);
-        var newAccessory = new Accessory(accessoryName, uuid);
-
-        // Make sure you provided a name for service otherwise it may not visible in some HomeKit apps.
-        var switchService = newAccessory.addService(Service.Switch, accessoryName);
-        switchService.getCharacteristic(Characteristic.On)
-            .on('set', function(value, callback) {
-                platform.log("(set):", accessoryName, "-> " + value);
-                callback();
-            });
-
-        newAccessory.on('identify', function(paired, callback) {
-            platform.log("(identify):", accessoryName, " Identify!!!");
-            callback();
-        }.bind(this));
-
-        // Ensure Switch is initialised to Off
-        // switchService.setCharacteristic(Characteristic.On, false);
-        switchService.getCharacteristic(Characteristic.On).setValue(false);
-
-        // register the accessory
-        platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
-        platform.accessories.push(newAccessory);
-        newAccessory.updateReachability(true);
-        return newAccessory;
-    },
-
-    // updateSensorState: function(state, wastriggered) {
-    //
+    // configurationRequestHandler: function(callback) {
+    //     var platform = this;
+    //     platform.log(">>>>> configurationRequestHandler");
     // },
 
+    addNewAccessory: function(accessoryType, accessoryName) {
+        var platform = this;
+        var service;
+        var uuid;
 
-    updateAccessoriesReachability: function(callback) {
-        console.log(accessory.DisplayName, ">>>>> updateAccessoriesReachability");
-    },
+        platform.log("Adding New ", accessoryType, "Accessory: ", accessoryName);
+        uuid = UUIDGen.generate(accessoryName);
+        var newAccessory = new Accessory(accessoryName, uuid);
 
-    removeAccessory: function(callback) {
-        console.log(accessory.DisplayName, ">>>>> removeAccessory");
+        switch (accessoryType) {
+            case "MotionSensor":
+                service = newAccessory.addService(Service.MotionSensor, accessoryName);
+
+                service.getCharacteristic(Characteristic.MotionDetected)
+                    .on('set', function(value, callback) {
+                        platform.log("(set):", accessoryName, "-> " + value);
+                        callback();
+                    });
+
+                // Ensure motion is initialised to false
+                // motionService.setCharacteristic(Characteristic.MotionDetected, false);
+                // motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
+                motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+                break;
+
+            case "Switch":
+                service = newAccessory.addService(Service.Switch, accessoryName);
+                service.getCharacteristic(Characteristic.On)
+                    .on('set', function(value, callback) {
+                        platform.log("(set):", accessoryName, "-> " + value);
+                        callback();
+                    });
+
+                // Ensure Switch is initialised to Off
+                // switchService.setCharacteristic(Characteristic.On, false);
+                switchService.getCharacteristic(Characteristic.On).setValue(false);
+                break;
+
+            default:
+                break;
+        }
+
+        newAccessory.on('identify', function(paired, callback) {
+            platform.log("(identify):", accessoryName, " Identify!!!");
+            callback();
+        }.bind(this));
+
+        // register the accessory
+        platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
+        platform.accessories.push(newAccessory);
+        newAccessory.updateReachability(true);
+        return newAccessory;
+
+    // },
+    //
+    //
+    // updateAccessoriesReachability: function(callback) {
+    //     console.log(accessory.DisplayName, ">>>>> updateAccessoriesReachability");
+    // },
+    //
+    // removeAccessory: function(callback) {
+    //     console.log(accessory.DisplayName, ">>>>> removeAccessory");
     }
 };
 
@@ -411,7 +386,6 @@ function endMotionTimerCallback(motionService, accessoryconfig) {
     // motionService.setCharacteristic(Characteristic.MotionDetected, false);
     // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
     motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-
 
     // delete the timeout propery
     delete accessoryconfig.timeout;
