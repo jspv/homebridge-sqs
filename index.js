@@ -185,6 +185,7 @@ function AWSSQSPlatformInit(log, config, api) {
                                 // set to "MotionDetected"
                                 service = platform.accessories[j].getService(Service.MotionSensor);
                                 service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
+                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to true");
                                 // service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
                                 // service.setCharacteristic(Characteristic.MotionDetected, true);
 
@@ -198,7 +199,7 @@ function AWSSQSPlatformInit(log, config, api) {
                                 config.accessories[i].timeout = setTimeout(
                                     endMotionTimerCallback,
                                     noMotionTimer * 1000,
-                                    service, config.accessories[i]);
+                                    service, config.accessories[i], platform);
                                 break;
 
                             case "Switch":
@@ -207,6 +208,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
                                 // set to off
                                 service.getCharacteristic(Characteristic.On).setValue(false);
+                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to Off");
                                 //service.setCharacteristic(Characteristic.On, false);
                                 break;
 
@@ -262,50 +264,6 @@ AWSSQSPlatformInit.prototype = {
             callback();
         }.bind(this));
 
-        // // Put some logging place to see what is called when.
-        // // SET - function(newValue, callback(err))
-        // if (accessory.getService(Service.MotionSensor)) {
-        //     accessory.getService(Service.MotionSensor)
-        //         .getCharacteristic(Characteristic.MotionDetected)
-        //         .on('set', function(value, callback) {
-        //             platform.log("(set):", accessory.displayName, "-> " + value);
-        //             callback();
-        //         });
-        //
-        //     // GET - function(callback(err, newValue)
-        //     accessory.getService(Service.MotionSensor)
-        //         .getCharacteristic(Characteristic.MotionDetected)
-        //         .on('get', function(callback) {
-        //             platform.log("(get): for", accessory.displayName, "was called");
-        //             callback();
-        //         });
-        //
-        //     // CHANGE
-        //     accessory.getService(Service.MotionSensor)
-        //         .getCharacteristic(Characteristic.MotionDetected)
-        //         .on('change', function(info) {
-        //             platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
-        //         });
-        //
-        //     // Ensure motion is initialised to false
-        //     accessory.getService(Service.MotionSensor)
-        //     .getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-        //     //.getCharacteristic(Characteristic.MotionDetected).setValue(false);
-        //         // .setCharacteristic(Characteristic.MotionDetected, false);
-        //
-        // } else {
-        //   if (accessory.getService(Service.Switch)) {
-        //     accessory.getService(Service.Switch)
-        //       .getCharacteristic(Characteristic.On)
-        //       .on('set', function(value, callback) {
-        //         platform.log("(set): for", accessory.displayName, "was called");
-        //         callback();
-        //       })
-        //       .on('change', function(info) {
-        //         platform.log("(change):", accessory.displayName, +" "+ info.oldValue + " -> " + info.newValue);
-        //       });
-        //   }
-        // }
         platform.accessories.push(accessory);
     },
 
@@ -367,25 +325,17 @@ AWSSQSPlatformInit.prototype = {
         newAccessory.updateReachability(true);
         return newAccessory;
 
-    // },
-    //
-    //
-    // updateAccessoriesReachability: function(callback) {
-    //     console.log(accessory.DisplayName, ">>>>> updateAccessoriesReachability");
-    // },
-    //
-    // removeAccessory: function(callback) {
-    //     console.log(accessory.DisplayName, ">>>>> removeAccessory");
     }
 };
 
 // Callback used by setTimeout to disable MotionSesor after a set period
 // of time
-function endMotionTimerCallback(motionService, accessoryconfig) {
+function endMotionTimerCallback(motionService, accessoryconfig, platform) {
     // Set motion sensor to false
     // motionService.setCharacteristic(Characteristic.MotionDetected, false);
-    // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
-    motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
+    motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+    // motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
+    platform.log.debug("Setting", accessoryconfig.type, accessoryconfig.name, "to False");
 
     // delete the timeout propery
     delete accessoryconfig.timeout;
