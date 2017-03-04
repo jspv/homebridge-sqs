@@ -184,10 +184,10 @@ function AWSSQSPlatformInit(log, config, api) {
                             case "MotionSensor":
                                 // set to "MotionDetected"
                                 service = platform.accessories[j].getService(Service.MotionSensor);
-                                service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
                                 platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to true");
-                                // service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
+                                // service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
                                 // service.setCharacteristic(Characteristic.MotionDetected, true);
+                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
 
                                 var noMotionTimer = config.accessories[i].noMotionTimer || DEFAULT_NO_MOTION_TIME;
 
@@ -293,8 +293,8 @@ AWSSQSPlatformInit.prototype = {
 
                 // Ensure motion is initialised to false
                 // motionService.setCharacteristic(Characteristic.MotionDetected, false);
-                // motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-                motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+                // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+                motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
                 break;
 
             case "Switch":
@@ -333,8 +333,8 @@ AWSSQSPlatformInit.prototype = {
 function endMotionTimerCallback(motionService, accessoryconfig, platform) {
     // Set motion sensor to false
     // motionService.setCharacteristic(Characteristic.MotionDetected, false);
-    motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
-    // motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
+    // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
+    motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
     platform.log.debug("Setting", accessoryconfig.type, accessoryconfig.name, "to False");
 
     // delete the timeout propery
