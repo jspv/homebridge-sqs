@@ -211,7 +211,8 @@ function AWSSQSPlatformInit(log, config, api) {
                                 platform.accessories[j].getService(Service.Switch);
 
                                 // set to off
-                                service.setCharacteristic(Characteristic.On, false);
+                                service.getCharacteristic(Characteristic.On).setValue(false);
+                                //service.setCharacteristic(Characteristic.On, false);
                                 break;
 
 
@@ -374,7 +375,8 @@ AWSSQSPlatformInit.prototype = {
         }.bind(this));
 
         // Ensure Switch is initialised to Off
-        switchService.setCharacteristic(Characteristic.On, false);
+        // switchService.setCharacteristic(Characteristic.On, false);
+        switchService.getCharacteristic(Characteristic.On).setValue(false);
 
         // register the accessory
         platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
