@@ -186,7 +186,11 @@ function AWSSQSPlatformInit(log, config, api) {
 
                                 service = platform.accessories[j].getService(Service.MotionSensor);
                                 // set to true
-                                service.setCharacteristic(Characteristic.MotionDetected, true);
+                                service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
+                                // service.setCharacteristic(Characteristic.MotionDetected, true);
+                                // HHere
+
+
                                 var noMotionTimer = config.accessories[i].noMotionTimer || DEFAULT_NO_MOTION_TIME;
 
                                 // if a timeout is already in progress, cancel it before seeting
@@ -288,7 +292,8 @@ AWSSQSPlatformInit.prototype = {
 
             // Ensure motion is initialised to false
             accessory.getService(Service.MotionSensor)
-                .setCharacteristic(Characteristic.MotionDetected, false);
+                .getCharacteristic(Characteristic.MotionDetected).setValue(false);
+                // .setCharacteristic(Characteristic.MotionDetected, false);
         } else {
           if (accessory.getService(Service.Switch)) {
             accessory.getService(Service.Switch)
@@ -336,7 +341,8 @@ AWSSQSPlatformInit.prototype = {
         }.bind(this));
 
         // Ensure motion is initialised to false
-        motionService.setCharacteristic(Characteristic.MotionDetected, false);
+        // motionService.setCharacteristic(Characteristic.MotionDetected, false);
+        motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
 
         // register the accessory
         platform.api.registerPlatformAccessories("homebridge-sqs", "AWSSQSPlatform", [newAccessory]);
@@ -377,6 +383,10 @@ AWSSQSPlatformInit.prototype = {
         return newAccessory;
     },
 
+    // updateSensorState: function(state, wastriggered) {
+    //
+    // },
+
 
     updateAccessoriesReachability: function(callback) {
         console.log(accessory.DisplayName, ">>>>> updateAccessoriesReachability");
@@ -391,7 +401,8 @@ AWSSQSPlatformInit.prototype = {
 // of time
 function endMotionTimerCallback(motionService, accessoryconfig) {
     // Set motion sensor to false
-    motionService.setCharacteristic(Characteristic.MotionDetected, false);
+    // motionService.setCharacteristic(Characteristic.MotionDetected, false);
+    motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
 
     // delete the timeout propery
     delete accessoryconfig.timeout;
