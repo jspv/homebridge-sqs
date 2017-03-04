@@ -16,6 +16,7 @@ const DEFAULT_NO_MOTION_TIME = 60,
 
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
+    console.log("DEBUG=(",process.env.DEBUG,")");
 
     // Accessory must be created from PlatformAccessory Constructor
     Accessory = homebridge.platformAccessory;
