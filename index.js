@@ -108,7 +108,8 @@ function AWSSQSPlatformInit(log, config, api) {
           msg = JSON.parse(message);
         } catch (e) {
           platform.log(e);
-          done(null, true);
+          msg.datetime = "2017-01-01T02:49:46Z";
+          msg.message = "Error detected in message - replaced with this bogus one";
         }
         platform.log(msg.datetime);
         platform.log(msg.message);
