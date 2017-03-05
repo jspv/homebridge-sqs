@@ -1,8 +1,10 @@
 # Ignore all files named .DS_Store or ending with .log
 **/.DS_Store
 **.log
+**.bak
 
 # Make sure to not commit my config.json as it has secret keys. 
 config.json
+testsend.config.json
 node_modules/
 dothomebridge/
