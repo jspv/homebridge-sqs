@@ -107,7 +107,7 @@ function AWSSQSPlatformInit(log, config, api) {
         try {
           msg = JSON.parse(message);
         } catch (e) {
-          platform.error(e);
+          platform.log(e);
           done(null, true);
         }
         platform.log(msg.datetime);
