@@ -131,6 +131,7 @@ This is my first attempt at writing a homebridge plugin and close to my first ti
 * Rudders' [homebridge-wemo](https://github.com/rudders/homebridge-wemo), good example code and easy to read.  
 
 ## TODO
+There is still something not right with the MotionSensor events - while homebridge gets them fine; I don't always see them reflected on my iOS devices nor do they trigger automations the way they should.  Switch seems to be fine.  
 
 ## License
 This work is licensed under the MIT license. See [license](LICENSE) for more details.
