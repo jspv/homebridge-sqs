@@ -18,14 +18,20 @@
         "accessories": [{
                 "name": "LaundryDoor",
                 "type": "MotionSensor",
-                "matchrex": "The Laundry Door was Opened at",
+                "matchrex": [{
+                    "rex": "The Laundry Door was Opened at",
+                    "state": true
+                }],
                 "useendtime": true,
                 "endtimeIANA_TZ": "America/New_York"
             },
             {
                 "name": "WebsiteLogin",
                 "type": "MotionSensor",
-                "matchrex": "The Web account was logged into successfully by",
+                "matchrex": [{
+                    "rex": "The Web account was logged into successfully by",
+                    "state": true
+                }],
                 "useendtime": true,
                 "endtimeIANA_TZ": "America/New_York",
                 "noMotionTimer": 30
@@ -33,7 +39,10 @@
             {
                 "name": "FoyerMotion",
                 "type": "MotionSensor",
-                "matchrex": "They Foyer Image Motion was Activated",
+                "matchrex": [{
+                    "rex": "They Foyer Image Motion was Activated",
+                    "state": true
+                }],
                 "useendtime": true,
                 "endtimeIANA_TZ": "America/New_York",
                 "noMotionTimer": 240
@@ -41,11 +50,37 @@
             {
                 "name": "BarMotion",
                 "type": "MotionSensor",
-                "matchrex": "The Liquor Motion was Activated",
+                "matchrex": [{
+                    "rex": "The Liquor Motion was Activated",
+                    "state": true
+                }],
                 "useendtime": true,
                 "endtimeIANA_TZ": "America/New_York",
                 "maxEventDelay": 120,
                 "noMotionTimer": 240
+            },
+            {
+                "name": "TestMotion",
+                "type": "MotionSensor",
+                "matchrex": [{
+                    "rex": "This is a test message",
+                    "state": true
+                }],
+                "useendtime": false,
+                "noMotionTimer": 20
+            },
+            {
+                "name": "TestSwitch",
+                "type": "Switch",
+                "matchrex": [{
+                        "rex": "This is a test switch message",
+                        "state": true
+                    },
+                    {
+                        "rex": "This is a test switch off message",
+                        "state": false
+                    }
+                ]
             }
         ]
     }]
