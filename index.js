@@ -191,7 +191,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
                                 var noMotionTimer = config.accessories[i].noMotionTimer || DEFAULT_NO_MOTION_TIME;
 
-                                // if a timeout is already in progress, cancel it before seeting a new one
+                                // if a timeout is already in progress, cancel it before setting a new one
                                 if (config.accessories[i].timeout) {
                                     clearTimeout(config.accessories[i].timeout);
                                 }
