@@ -104,7 +104,12 @@ function AWSSQSPlatformInit(log, config, api) {
 
     function worker(message, done) {
         platform.log("Received Message:", message);
-        msg = JSON.parse(message);
+        try {
+          msg = JSON.parse(message);
+        } catch (e) {
+          platform.error(e);
+          done(null, true);
+        }
         platform.log(msg.datetime);
         platform.log(msg.message);
         try {
