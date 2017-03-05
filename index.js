@@ -12,7 +12,7 @@ var Service, Characteristic, HomebridgeAPI;
 // NO_MOTION_TIMER: Number of seconds before resetetting motion sensors time is in seconds
 // MAX_EVENT_DELAY: Time between current time and message time that the message will still be considered valid
 const DEFAULT_NO_MOTION_TIME = 60,
-    DEFAULT_MAX_EVENT_DELAY = 90;
+    DEFAULT_MAX_EVENT_DELAY = 60;
 
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
@@ -104,10 +104,13 @@ function AWSSQSPlatformInit(log, config, api) {
 
     function worker(message, done) {
         platform.log("Received Message:", message);
+        msg = JSON.parse(message);
+        platform.log(msg.datetime);
+        platform.log(msg.message);
         try {
             // See if message matches an accessory's matchrex
             for (var i = 0, leni = config.accessories.length; i < leni; i++) {
-                if (message.match(config.accessories[i].matchrex)) {
+                if (msg.message.match(config.accessories[i].matchrex)) {
                     platform.log("Messages matches", config.accessories[i].name);
                     break;
                 }
@@ -123,7 +126,7 @@ function AWSSQSPlatformInit(log, config, api) {
             // the time is expected to be in ISO8601 format.
 
             // if useendtime is set, also compare the current time vs. the
-            // at the end of the messate (used by alarm.com)
+            // at the end of the message (used by alarm.com)
             // The expected format is for the message to end with
             // the time the event occurred in HH:MM [ap]m in the Timezone
             // specified in endtimeIANA_TZ.  no date.
@@ -135,13 +138,14 @@ function AWSSQSPlatformInit(log, config, api) {
 
             var eventdatetime;
             var datetime = new Date();
-            var msgdatetime = new Date(Date.parse(message.slice(0, message.search(","))));
+            //var msgdatetime = new Date(Date.parse(message.slice(0, message.search(","))));
+            var msgdatetime = new Date(Date.parse(msg.datetime));
 
             // Check to see if this accessory is expecting a timestamp at the end
             // of the message (this is used by Alarm.com messages)
             if (config.accessories[i].useendtime) {
                 // Look for a time at the end of the message
-                var eventtime = message.match(/\s(\d{1,2}:\d{2} [ap]m)$/)[0];
+                var eventtime = msg.message.match(/\s(\d{1,2}:\d{2} [ap]m)$/)[0];
                 var eventminutes = Number(eventtime.match(/:(\d{2})/)[1]);
                 // Add offset for pm
                 var eventhours = eventtime.match(/(\d{1,2}):/)[1];
@@ -170,7 +174,7 @@ function AWSSQSPlatformInit(log, config, api) {
             if (parseInt((datetime - eventdatetime) / 1000) > maxEventDelay) {
                 this.log("Message too old:", parseInt((datetime - msgdatetime) / 1000), "vs", maxEventDelay);
                 this.log("eventdatetime  : ", eventdatetime.toISOString());
-                this.log("msgdatetime   : ", msgdatetime.toISOString());
+                this.log("msgdatetime    : ", msgdatetime.toISOString());
                 this.log("currentDatetime: ", datetime.toISOString());
             } else {
                 // All looks good, trigger the sensor state
@@ -214,7 +218,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
                             default:
                                 // This should never happen
-                                platfor.log("Can't find a match for what do do with accessory type " + config.accessories[i].type + " in config.json");
+                                platform.log("Can't find a match for what do do with accessory type " + config.accessories[i].type + " in config.json");
                                 break;
                         }
                         // We found a matching accessory, break the for loop.
@@ -328,7 +332,7 @@ AWSSQSPlatformInit.prototype = {
     }
 };
 
-// Callback used by setTimeout to disable MotionSesor after a set period
+// Callback used by setTimeout to disable MotionSensor after a set period
 // of time
 function endMotionTimerCallback(motionService, accessoryconfig, platform) {
     // Set motion sensor to false
