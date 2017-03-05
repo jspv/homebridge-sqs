@@ -103,29 +103,46 @@ function AWSSQSPlatformInit(log, config, api) {
     var SQSqueue = new SQSWorker(sqsoptions, worker);
 
     function worker(message, done) {
-        platform.log("Received SWS Message:", message);
+        platform.log("Received SQS Message:", message);
+
+        // Validate and parse the message
         var msg = {};
         try {
-          msg = JSON.parse(message);
-          if (! ("datetime" in msg && "message" in msg)) {
-            throw new Error ("Message missing required attributes");
-          }
-        } catch (e) {
-          platform.log("Malformed SQS Message Error (discarding)", e);
-          done(null, true);
-          return;
-        }
-        platform.log.debug(msg.datetime);
-        platform.log.debug(msg.message);
-        try {
-            // See if message matches an accessory's matchrex
-            for (var i = 0, leni = config.accessories.length; i < leni; i++) {
-                if (msg.message.match(config.accessories[i].matchrex)) {
-                    platform.log("Messages matches", config.accessories[i].name);
-                    break;
-                }
+            msg = JSON.parse(message);
+            if (!("datetime" in msg && "message" in msg)) {
+                throw new Error("Message missing required attributes");
             }
-            if (i === leni) {
+        } catch (e) {
+            platform.log("Malformed SQS Message Error (discarding)", e);
+            done(null, true);
+            return;
+        }
+
+        // Messge looks OK, condinue
+        platform.log.debug("datetime: ", msg.datetime);
+        platform.log.debug("message:  ", msg.message);
+        try {
+            var i; // hold the index of the config.accessories array
+            var matchrex; // hold the index of the rex the message matches.
+
+            // See if message matches an accessory's matchrex
+            accessoryloop:
+                for (i = 0, leni = config.accessories.length; i < leni; i++) {
+                    // Accessories aren't required to have matchrex (e.g. dumb switches)
+                    if (!("matchrex" in config.accessories[i])) {
+                        continue accessoryloop;
+                    }
+                    for (matchrex = 0; matchrex < config.accessories[i].matchrex.length; matchrex++) {
+                        platform.log.debug("Comparing message to:",
+                            config.accessories[i].name + "[" + matchrex + "] ",
+                            config.accessories[i].matchrex[matchrex].rex);
+                        if (msg.message.match(config.accessories[i].matchrex[matchrex].rex)) {
+                            platform.log.debug("message matches", config.accessories[i].name + "[" + matchrex + "]" );
+                            break accessoryloop;
+                        }
+                    }
+                }
+            if (i === config.accessories.length) {
                 platform.log("Message doesn't match any known Accessory");
                 done(null, true);
                 return;
@@ -179,7 +196,7 @@ function AWSSQSPlatformInit(log, config, api) {
             // if the difference between when the event occured and the time this
             // program recives it is > maxEventDelay, don't process the message.
 
-            var maxEventDelay = config.accessories[i].maxEventDelay || DEFAULT_MAX_EVENT_DELAY;
+            var maxEventDelay = ("maxEventDelay" in config.accessories[i]) ? config.accessories[i].maxEventDelay : DEFAULT_MAX_EVENT_DELAY;
 
             if (parseInt((datetime - eventdatetime) / 1000) > maxEventDelay) {
                 this.log("Message too old:", parseInt((datetime - msgdatetime) / 1000), "vs", maxEventDelay);
@@ -190,7 +207,7 @@ function AWSSQSPlatformInit(log, config, api) {
                 // All looks good, trigger the sensor state
                 this.log(">>>>>> doing stuff <<<<<<<");
 
-                // Find matching Accessory
+                // Find matching Accessory in the platform's accessory list
                 var service;
                 for (var j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
                     if (platform.accessories[j].displayName === config.accessories[i].name) {
@@ -198,31 +215,37 @@ function AWSSQSPlatformInit(log, config, api) {
                             case "MotionSensor":
                                 // set to "MotionDetected"
                                 service = platform.accessories[j].getService(Service.MotionSensor);
-                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to true");
+                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to", config.accessories[i].matchrex[matchrex].state);
                                 // service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
                                 // service.setCharacteristic(Characteristic.MotionDetected, true);
-                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(true);
+                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(config.accessories[i].matchrex[matchrex].state);
 
-                                var noMotionTimer = config.accessories[i].noMotionTimer || DEFAULT_NO_MOTION_TIME;
+
+                                var noMotionTimer = ("noMotionTimer" in config.accessories[i]) ? config.accessories[i].noMotionTimer : DEFAULT_NO_MOTION_TIME;
 
                                 // if a timeout is already in progress, cancel it before setting a new one
                                 if (config.accessories[i].timeout) {
                                     clearTimeout(config.accessories[i].timeout);
                                 }
 
-                                config.accessories[i].timeout = setTimeout(
-                                    endMotionTimerCallback,
-                                    noMotionTimer * 1000,
-                                    service, config.accessories[i], platform);
+                                // if noMotionTimer is not zero, set one.
+                                if (noMotionTimer) {
+                                    config.accessories[i].timeout = setTimeout(
+                                        endMotionTimerCallback,
+                                        noMotionTimer * 1000,
+                                        service, config.accessories[i], platform);
+                                }
+
                                 break;
 
                             case "Switch":
                                 service =
                                     platform.accessories[j].getService(Service.Switch);
 
-                                // set to off
-                                service.getCharacteristic(Characteristic.On).setValue(false);
-                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to Off");
+                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to", config.accessories[i].matchrex[matchrex].state);
+
+                                // state: true = On; false = Off
+                                service.getCharacteristic(Characteristic.On).setValue(config.accessories[i].matchrex[matchrex].state);
                                 //service.setCharacteristic(Characteristic.On, false);
                                 break;
 
@@ -241,7 +264,7 @@ function AWSSQSPlatformInit(log, config, api) {
                 }
             }
         } catch (err) {
-            console.log("Something really went wrong here, deleting removing the message");
+            console.log("Something really went wrong here, removing the message");
             console.log(err);
         }
         // Clear the message from the queue.
@@ -348,7 +371,7 @@ function endMotionTimerCallback(motionService, accessoryconfig, platform) {
     // motionService.setCharacteristic(Characteristic.MotionDetected, false);
     // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
     motionService.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
-    platform.log.debug("Setting", accessoryconfig.type, accessoryconfig.name, "to False");
+    platform.log.debug("Setting", accessoryconfig.type, accessoryconfig.name, "to false");
 
     // delete the timeout propery
     delete accessoryconfig.timeout;
