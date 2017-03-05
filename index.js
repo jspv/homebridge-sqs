@@ -103,16 +103,20 @@ function AWSSQSPlatformInit(log, config, api) {
     var SQSqueue = new SQSWorker(sqsoptions, worker);
 
     function worker(message, done) {
-        platform.log("Received Message:", message);
+        platform.log("Received SWS Message:", message);
+        var msg = {};
         try {
           msg = JSON.parse(message);
+          if (! ("datetime" in msg && "message" in msg)) {
+            throw new Error ("Message missing required attributes");
+          }
         } catch (e) {
-          platform.log(e);
-          msg.datetime = "2017-01-01T02:49:46Z";
-          msg.message = "Error detected in message - replaced with this bogus one";
+          platform.log("Malformed SQS Message Error (discarding)", e);
+          done(null, true);
+          return;
         }
-        platform.log(msg.datetime);
-        platform.log(msg.message);
+        platform.log.debug(msg.datetime);
+        platform.log.debug(msg.message);
         try {
             // See if message matches an accessory's matchrex
             for (var i = 0, leni = config.accessories.length; i < leni; i++) {
@@ -235,17 +239,16 @@ function AWSSQSPlatformInit(log, config, api) {
                 if (j === lenj) {
                     throw new Error('Mismatch finding a registered Platform Accessory matching config.json ' + config.accessories[i].name);
                 }
-
             }
-            // Clear the message from the queue.
-            // second paramter in done(0 true/false notes if the message should be deleted (true)
-            // or immediately released for another worker to take up (false)
-            done(null, true);
         } catch (err) {
             console.log("Something really went wrong here, deleting removing the message");
             console.log(err);
-            done(null, true);
         }
+        // Clear the message from the queue.
+        // second paramter in done(0 true/false notes if the message should be deleted (true)
+        // or immediately released for another worker to take up (false)
+
+        done(null, true);
     } // worker
 }
 
