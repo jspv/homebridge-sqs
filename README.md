@@ -133,5 +133,7 @@ This is my first attempt at writing a homebridge plugin and close to my first ti
 ## TODO
 There is still something not right with the MotionSensor events - while homebridge gets them fine; I don't always see them reflected on my iOS devices nor do they trigger automations the way they should.  Switch seems to be fine.  
 
+* Add timeouts (similar to noMotionTimer) for switches - change them back to their default value.  This way they can act similar to motion detectors if I can't figure out why the motion detectors aren't triggering automations correctly. 
+
 ## License
 This work is licensed under the MIT license. See [license](LICENSE) for more details.
