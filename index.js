@@ -321,7 +321,7 @@ AWSSQSPlatformInit.prototype = {
             case "MotionSensor":
                 service = newAccessory.addService(Service.MotionSensor, accessoryName);
 
-                console.log("About to add MD");
+                // console.log("About to add MD");
                 service.getCharacteristic(Characteristic.MotionDetected)
                     .on('set', function(value, callback) {
                         platform.log("(set):", accessoryName, "-> " + value);
@@ -335,7 +335,7 @@ AWSSQSPlatformInit.prototype = {
                 break;
 
             case "Switch":
-                console.log("About to add Switch");
+                // console.log("About to add Switch");
                 service = newAccessory.addService(Service.Switch, accessoryName);
                 service.getCharacteristic(Characteristic.On)
                     .on('set', function(value, callback) {
