@@ -10,7 +10,7 @@ The plugin listens to a single AWS queue specified in the platform settings.  It
 
 The message on the queue is expected to be in the format of:
 
-{ "datetime" : "TIMESTAMP, "message" : "actual message"}
+{ "datetime" : "TIMESTAMP", "message" : "actual message"}
 
 Where TIMESTAMP is in ISO8601 format in GMT.  
 
@@ -28,8 +28,8 @@ config.json Platform and Accessory Fields:
 ## Platform Fields
   * "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",]
   * "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY"
-  * "AWSregion": "us-east-1"
-  * "AWSsqsQueueURL": "https://sqs.us-east-2.amazonaws.com/MYQUEUE/MyQueue.fifo"
+  * "AWSregion": "YOUR_QUEUE_REGION"
+  * "AWSsqsQueueURL": "https://YOUR_QUEUE_URL"
 
 ## Accessory Fields
 
@@ -51,7 +51,7 @@ Configuration sample:
      "name": "AWS",
      "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
      "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY",
-     "AWSregion": "us-east-1",
+     "AWSregion": "us-east-2",
      "AWSsqsQueueURL": "https://sqs.us-east-2.amazonaws.com/MYQUEUE/MyQueue.fifo",
      "accessories": [{
              "name": "LaundryDoor",
