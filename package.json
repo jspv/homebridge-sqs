@@ -6,7 +6,7 @@
   "directories": {},
   "license": "MIT",
   "main": "index.js",
-  "author": "Justin Peavey",
+  "author": "Justin S. Peavey",
   "keywords": [
     "homebridge-plugin",
     "aws",
