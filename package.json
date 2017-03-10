@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "moment-timezone": "0.5.11",
-    "sqs-worker": "0.0.2"
+    "sqs-worker": "https://github.com/jspv/sqs-worker.git#master"
   },
   "repository": {
     "type": "git",

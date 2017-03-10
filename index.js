@@ -3,7 +3,7 @@ var moment = require('moment-timezone');
 
 // setup access to the queue
 // uncomment below to use debug version of sqs-worker
-SQSWorker = require('./lib/jspsqs-worker');
+SQSWorker = require('sqs-worker');
 // var SQSWorker = require('sqs-worker');
 
 var Service, Characteristic, HomebridgeAPI;
@@ -13,6 +13,7 @@ var Service, Characteristic, HomebridgeAPI;
 // MAX_EVENT_DELAY: Time between current time and message time that the message will still be considered valid
 const DEFAULT_NO_MOTION_TIME = 60,
     DEFAULT_MAX_EVENT_DELAY = 60;
+
 
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
@@ -26,6 +27,14 @@ module.exports = function(homebridge) {
     Characteristic = homebridge.hap.Characteristic;
     UUIDGen = homebridge.hap.uuid;
     HomebridgeAPI = homebridge;
+
+
+    // // For Debugging
+    // const util = require('util');
+    // console.log("------SWITCH------");
+    // console.log(util.inspect(Service.Switch, false, null));
+    // console.log("------Function------");
+    // console.log(Service.Switch.toString());
 
     // 1st argument: Module original name ("homebridge-xy")
     // 2nd argument: Module name ("xy")
@@ -239,6 +248,7 @@ function AWSSQSPlatformInit(log, config, api) {
                                 break;
 
                             case "Switch":
+
                                 service =
                                     platform.accessories[j].getService(Service.Switch);
 
