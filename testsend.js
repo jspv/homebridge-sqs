@@ -59,6 +59,12 @@ if (type.length) {
                 message: "don't match me message " + now
             });
             break;
+				case "laundry":
+            msg = JSON.stringify({
+                datetime: now.toISOString(),
+                message: "The Laundry Door was Opened at 12:14p"
+            });
+            break;
         default:
         case "badformat":
             msg = "This is a badly formatted message which can't be parsed";
