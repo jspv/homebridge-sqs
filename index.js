@@ -28,7 +28,6 @@ module.exports = function(homebridge) {
     UUIDGen = homebridge.hap.uuid;
     HomebridgeAPI = homebridge;
 
-
     // // For Debugging
     // const util = require('util');
     // console.log("------SWITCH------");
@@ -103,6 +102,7 @@ function AWSSQSPlatformInit(log, config, api) {
         region: config.AWSregion,
         accessKeyId: config.AWSaccessKeyId,
         secretAccessKey: config.AWSsecretAccessKey,
+        attributes: ["SentTimestamp"],
         timeout: "20",
         log: this.log,
     };
@@ -111,51 +111,179 @@ function AWSSQSPlatformInit(log, config, api) {
     // below for readability and hoisted.
     var SQSqueue = new SQSWorker(sqsoptions, worker);
 
-    function worker(message, done) {
+    function worker(message, fullmessage, done) {
+        var i, j; //
+        var sourceref;
+        var queueMessageDateTime, nowDateTime;
         platform.log("Received SQS Message:", message);
+        platform.log.debug("Fullmessage:", fullmessage);
+        queueMessageDateTime = new Date(parseInt(fullmessage.Attributes.SentTimestamp));
+        nowDateTime = new Date();
+
+        function _throw(m) {
+            throw new Error(m);
+        }
 
         // Validate and parse the message
         var msg = {};
         try {
             msg = JSON.parse(message);
-            if (!("datetime" in msg && "message" in msg)) {
-                throw new Error("Message missing required attributes");
+
+            // Verify mandatory fields
+            if (!(msg.source && msg.message)) {
+                _throw("Missing rquired fields 'source' and 'message'");
             }
-        } catch (e) {
-            platform.log("Malformed SQS Message Error (discarding)", e);
+
+            // Check to see if there is a matching source
+            for (sourceref in config.sources) {
+                if (config.sources[sourceref].source === msg.source) {
+                    break;
+                }
+            }
+            if (sourceref === config.sources.length) {
+                _throw("Unrecognized SQS Message source " + msg.source);
+            }
+
+            // // Verify the source is known and if the there are required fields
+            if ("sourcefields" in config.sources[sourceref]) {
+                config.sources[sourceref].sourcefields.forEach(function(field) {
+                    if (!(field in msg)) {
+                        _throw("Missing required field " + field + " from source " + msg.source);
+                    }
+                });
+            }
+
+        } catch (err) {
+            platform.log("Malformed SQS Message Error (discarding)", err);
+            platform.log.debug("Removing message from queue");
             done(null, true);
             return;
         }
 
-        // Messge looks OK, condinue
-        platform.log.debug("datetime: ", msg.datetime);
-        platform.log.debug("message:  ", msg.message);
+        // Messge looks OK, continue
         try {
-            var i; // hold the index of the config.accessories array
-            var matchrex; // hold the index of the rex the message matches.
+            switch (config.sources[sourceref].type) {
+                case "webhook":
+                    platform.log.debug("Processing 'webhook' message:");
+                    platform.log.debug("message:  ", msg.message);
+                    platform.log.debug("webhook = %s, message = %s", msg.webhook, msg.message);
 
-            // See if message matches an accessory's matchrex
-            accessoryloop:
-                for (i = 0, leni = config.accessories.length; i < leni; i++) {
-                    // Accessories aren't required to have matchrex (e.g. dumb switches)
-                    if (!("matchrex" in config.accessories[i])) {
-                        continue accessoryloop;
+                    for (i = 0; i < config.webhooks.length; i++) {
+                        j = 1;
                     }
-                    for (matchrex = 0; matchrex < config.accessories[i].matchrex.length; matchrex++) {
-                        platform.log.debug("Comparing message to:",
-                            config.accessories[i].name + "[" + matchrex + "] ",
-                            config.accessories[i].matchrex[matchrex].rex);
-                        if (msg.message.match(config.accessories[i].matchrex[matchrex].rex)) {
-                            platform.log.debug("message matches", config.accessories[i].name + "[" + matchrex + "]" );
-                            break accessoryloop;
+                    break;
+
+                case "endtime":
+                    // override queueMessageDateTime with endtime
+                    queueMessageDateTime = parseEndtime(msg);
+                    platform.log.debug("Overrode queueMessageDateTime to ", queueMessageDateTime);
+                    /* falls through */
+
+                case "generic":
+                    platform.log.debug("Processing ", config.sources[sourceref].type, " message:");
+                    platform.log.debug("message:  ", msg.message);
+
+                    // see if any Accessories match the message
+                    var matchingAccessories = findMatchingAccessories(msg);
+                    if (!matchingAccessories) {
+                        platform.log("Message does not match any known Accessory");
+                        platform.log.debug("Removing message from queue");
+                        done(null, true);
+                    }
+
+                    // For each matching accessory, evaluate if the message time is
+                    // within the max event delay and process accordingly
+
+                    matchingAccessories.forEach(function processAccessory(accessorylistitem) {
+
+                        // Get the matching accessory from the accesorylistitem
+                        var accessory = config.accessories[accessorylistitem.index];
+
+                        var maxEventDelay = ("maxEventDelay" in accessory) ? accessory.maxEventDelay : DEFAULT_MAX_EVENT_DELAY;
+
+                        if ((nowDateTime.getTime() - queueMessageDateTime.getTime()) / 1000 > maxEventDelay) {
+                            platform.log("Message too old for Accessory:", accessory.name, "[", parseInt((nowDateTime.getTime() - queueMessageDateTime.getTime()) / 1000), "vs", maxEventDelay, "]");
+                            platform.log("queueMessageDateTime: ", queueMessageDateTime.toISOString());
+                            platform.log("currentDatetime: ", nowDateTime.toISOString());
+                            return;
                         }
-                    }
-                }
-            if (i === config.accessories.length) {
-                platform.log("Message doesn't match any known Accessory");
-                done(null, true);
-                return;
+
+                        // All looks good, trigger the sensor state
+                        platform.log(">>>>>> doing stuff <<<<<<<");
+
+                        var service, platformAccessoryRef;
+
+                        // find matching registered platform accessory
+                        for (i in platform.accessories) {
+                            if (platform.accessories[i].displayName == accessory.name) {
+                                platformAccessoryRef = i;
+                            }
+                        }
+                        if (!platformAccessoryRef) {
+                            _throw("Cant find matching platformAccessory for ", accessory.name);
+                        }
+
+                        switch (accessory.type) {
+                            case "MotionSensor":
+                                // set to "MotionDetected"
+                                service = platform.accessories[platformAccessoryRef].getService(Service.MotionSensor);
+                                platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to",
+                                    accessorylistitem.state);
+
+                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(accessorylistitem.state);
+
+                                var noMotionTimer = ("noMotionTimer" in accessory) ? accessory.noMotionTimer : DEFAULT_NO_MOTION_TIME;
+
+                                // if a timeout is already in progress, cancel it before setting a new one
+                                if (config.accessories[accessorylistitem.index].timeout) {
+                                    clearTimeout(config.accessories[accessorylistitem.index].timeout);
+                                }
+
+                                // if noMotionTimer is not zero, set one.
+                                if (noMotionTimer) {
+                                    config.accessories[accessorylistitem.index].timeout = setTimeout(
+                                        endMotionTimerCallback,
+                                        noMotionTimer * 1000,
+                                        service, config.accessories[accessorylistitem.index], platform);
+                                }
+                                break;
+
+                            case "Switch":
+                                service =
+                                    platform.accessories[platformAccessoryRef].getService(Service.Switch);
+
+                                platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to", accessorylistitem.state);
+
+                                // state: true = On; false = Off
+                                service.getCharacteristic(Characteristic.On).setValue(accessorylistitem.state);
+                                //service.setCharacteristic(Characteristic.On, false);
+                                break;
+
+                            default:
+                                // This should never happen
+                                platform.log("Can't find a match for what do do with accessory type " + accessory.type + " in config.json");
+                                break;
+                        }
+
+                    });
+                    break;
+
+                default:
+                    platform.log("Don't have a handler for source type ", config.sources[sourceref].type);
             }
+        } catch (err) {
+            console.log("Something really went wrong here, removing the message");
+            console.log(err);
+        }
+        // Clear the message from the queue.
+        // second paramter in done(0 true/false notes if the message should be deleted (true)
+        // or immediately released for another worker to take up (false)
+        platform.log.debug("Removing message from queue");
+        done(null, true);
+
+        // Function Definitions for worker
+
+        function parseEndtime(msg) {
 
             // Compare the current time vs. the reported time, the reported time
             // is expected to be the beginning of the string up to the comma;
@@ -172,116 +300,88 @@ function AWSSQSPlatformInit(log, config, api) {
             // mailtime.  If a different date (e.g. mail received next day) - use
             // the previous day for eventtime
 
-            var eventdatetime;
-            var datetime = new Date();
-            //var msgdatetime = new Date(Date.parse(message.slice(0, message.search(","))));
-            var msgdatetime = new Date(Date.parse(msg.datetime));
-
             // Check to see if this accessory is expecting a timestamp at the end
             // of the message (this is used by Alarm.com messages)
-            if (config.accessories[i].useendtime) {
-                // Look for a time at the end of the message
-                var eventtime = msg.message.match(/\s(\d{1,2}:\d{2} [ap]m)$/)[0];
-                var eventminutes = Number(eventtime.match(/:(\d{2})/)[1]);
+            // delete - if (config.accessories[i].useendtime) {
+            // Look for a time at the end of the message
+
+            var eventdatetime;
+            var eventtime, eventminutes, eventhours;
+
+            try {
+                if (!("endtimeIANA_TZ" in config.sources[sourceref])) {
+                    throw new Error("Missing endtimeIANA_TZ in source ", msg.source);
+                }
+            } catch (err) {
+                throw err;
+            }
+
+            try {
+                platform.log.debug("msg:", msg);
+                eventtime = msg.message.match(/\s(\d{1,2}:\d{2} [ap]m)$/)[0];
+                eventminutes = Number(eventtime.match(/:(\d{2})/)[1]);
+
                 // Add offset for pm
-                var eventhours = eventtime.match(/(\d{1,2}):/)[1];
-                if (eventtime.match(/[ap]m$/)[0] == "pm") {
+                eventhours = eventtime.match(/(\d{1,2}):/)[1];
+                if ((eventtime.match(/[ap]m$/)[0] == "pm") && (eventhours !== "12")) {
                     eventhours = Number(eventhours) + 12;
                 }
+
                 // Create eventdatetime using the reported Timezone
                 eventdatetime = moment.tz([
-                    msgdatetime.getFullYear(),
-                    msgdatetime.getMonth(),
-                    msgdatetime.getDate(),
+                    queueMessageDateTime.getFullYear(),
+                    queueMessageDateTime.getMonth(),
+                    queueMessageDateTime.getDate(),
                     eventhours,
                     eventminutes
-                ], config.accessories[i].endtimeIANA_TZ);
-            } else {
-                // not using custom message timestamp, just set the eventdatetime
-                // to the reported msgdatetime
-                eventdatetime = msgdatetime;
+                ], config.sources[sourceref].endtimeIANA_TZ);
+                return eventdatetime.toDate();
+            } catch (err) {
+                platform.log("Expected endtime in message, didn't get it");
+                throw (err);
             }
+        } // parseEndtime
 
-            // if the difference between when the event occured and the time this
-            // program recives it is > maxEventDelay, don't process the message.
+        // Search accessories for any rexs matching the message, return an array of
+        // Accessory Names and matching state.
+        function findMatchingAccessories(msg) {
 
-            var maxEventDelay = ("maxEventDelay" in config.accessories[i]) ? config.accessories[i].maxEventDelay : DEFAULT_MAX_EVENT_DELAY;
+            var i, j; // counters
+            var accessorylist = []; // list of matching accessories
 
-            if (parseInt((datetime - eventdatetime) / 1000) > maxEventDelay) {
-                this.log("Message too old:", parseInt((datetime - msgdatetime) / 1000), "vs", maxEventDelay);
-                this.log("eventdatetime  : ", eventdatetime.toISOString());
-                this.log("msgdatetime    : ", msgdatetime.toISOString());
-                this.log("currentDatetime: ", datetime.toISOString());
-            } else {
-                // All looks good, trigger the sensor state
-                this.log(">>>>>> doing stuff <<<<<<<");
+            // See if message matches an accessory's matchrex
+            accessoryloop:
+                for (i = 0, leni = config.accessories.length; i < leni; i++) {
+                    // Accessories aren't required to have matchrex (e.g. dumb switches)
+                    // JSP - thinking they *should* be required now.
+                    if (!("matchrex" in config.accessories[i])) {
+                        continue accessoryloop;
+                    }
+                    for (j = 0; j < config.accessories[i].matchrex.length; j++) {
+                        platform.log.debug("Comparing message to:",
+                            config.accessories[i].name + "[" + j + "] ",
+                            config.accessories[i].matchrex[j].rex);
+                        if (msg.message.match(config.accessories[i].matchrex[j].rex)) {
+                            platform.log.debug("message matches", config.accessories[i].name + "[" + j + "]");
 
-                // Find matching Accessory in the platform's accessory list
-                var service;
-                for (var j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
-                    if (platform.accessories[j].displayName === config.accessories[i].name) {
-                        switch (config.accessories[i].type) {
-                            case "MotionSensor":
-                                // set to "MotionDetected"
-                                service = platform.accessories[j].getService(Service.MotionSensor);
-                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to", config.accessories[i].matchrex[matchrex].state);
-                                // service.getCharacteristic(Characteristic.MotionDetected).setValue(true);
-                                // service.setCharacteristic(Characteristic.MotionDetected, true);
-                                service.getCharacteristic(Characteristic.MotionDetected).updateValue(config.accessories[i].matchrex[matchrex].state);
-
-
-                                var noMotionTimer = ("noMotionTimer" in config.accessories[i]) ? config.accessories[i].noMotionTimer : DEFAULT_NO_MOTION_TIME;
-
-                                // if a timeout is already in progress, cancel it before setting a new one
-                                if (config.accessories[i].timeout) {
-                                    clearTimeout(config.accessories[i].timeout);
-                                }
-
-                                // if noMotionTimer is not zero, set one.
-                                if (noMotionTimer) {
-                                    config.accessories[i].timeout = setTimeout(
-                                        endMotionTimerCallback,
-                                        noMotionTimer * 1000,
-                                        service, config.accessories[i], platform);
-                                }
-
-                                break;
-
-                            case "Switch":
-
-                                service =
-                                    platform.accessories[j].getService(Service.Switch);
-
-                                platform.log.debug("Setting", config.accessories[i].type, platform.accessories[j].displayName, "to", config.accessories[i].matchrex[matchrex].state);
-
-                                // state: true = On; false = Off
-                                service.getCharacteristic(Characteristic.On).setValue(config.accessories[i].matchrex[matchrex].state);
-                                //service.setCharacteristic(Characteristic.On, false);
-                                break;
-
-                            default:
-                                // This should never happen
-                                platform.log("Can't find a match for what do do with accessory type " + config.accessories[i].type + " in config.json");
-                                break;
+                            // push name and matching state to the accessorylist array
+                            accessorylist.push({
+                                "name": config.accessories[i].name,
+                                "state": config.accessories[i].matchrex[j].state,
+                                "index": i
+                            });
                         }
-                        // We found a matching accessory, break the for loop.
-                        break;
                     }
                 }
-
-                if (j === lenj) {
-                    throw new Error('Mismatch finding a registered Platform Accessory matching config.json ' + config.accessories[i].name);
-                }
+            if (!accessorylist.length) {
+                platform.log.debug("Message doesn't match any known Accessory");
+                return null;
+            } else {
+                platform.log.debug("Found the following matching accessories: ", accessorylist);
+                return accessorylist;
             }
-        } catch (err) {
-            console.log("Something really went wrong here, removing the message");
-            console.log(err);
-        }
-        // Clear the message from the queue.
-        // second paramter in done(0 true/false notes if the message should be deleted (true)
-        // or immediately released for another worker to take up (false)
+        } // findMatchingAccessories
 
-        done(null, true);
     } // worker
 }
 
@@ -313,11 +413,6 @@ AWSSQSPlatformInit.prototype = {
         platform.accessories.push(accessory);
     },
 
-    // configurationRequestHandler: function(callback) {
-    //     var platform = this;
-    //     platform.log(">>>>> configurationRequestHandler");
-    // },
-
     addNewAccessory: function(accessoryType, accessoryName) {
         var platform = this;
         var service;
@@ -331,7 +426,6 @@ AWSSQSPlatformInit.prototype = {
             case "MotionSensor":
                 service = newAccessory.addService(Service.MotionSensor, accessoryName);
 
-                // console.log("About to add MD");
                 service.getCharacteristic(Characteristic.MotionDetected)
                     .on('set', function(value, callback) {
                         platform.log("(set):", accessoryName, "-> " + value);
@@ -339,8 +433,6 @@ AWSSQSPlatformInit.prototype = {
                     });
 
                 // Ensure motion is initialised to false
-                // motionService.setCharacteristic(Characteristic.MotionDetected, false);
-                // motionService.getCharacteristic(Characteristic.MotionDetected).setValue(false);
                 service.getCharacteristic(Characteristic.MotionDetected).updateValue(false);
                 break;
 

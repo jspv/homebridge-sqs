@@ -38,23 +38,27 @@ if (type.length) {
         case "badfields":
             msg = JSON.stringify({
                 blahblah: now.toISOString(),
+								source: "alarm.com",
                 message: "This test message is missing required attributes"
             });
             break;
         case "switchon":
             msg = JSON.stringify({
                 datetime: now.toISOString(),
+								source: "generic",
                 message: "This is a test switch message " + now
             });
             break;
         case "switchoff":
             msg = JSON.stringify({
+								source: "alarm.com",
                 datetime: now.toISOString(),
-                message: "This is a test switch off message " + now
+                message: "This is a test switch off message " + formatAMPM(now)
             });
             break;
         case "nomatch":
             msg = JSON.stringify({
+							source: "alarm.com",
                 datetime: now.toISOString(),
                 message: "don't match me message " + now
             });
@@ -62,9 +66,16 @@ if (type.length) {
 				case "laundry":
             msg = JSON.stringify({
                 datetime: now.toISOString(),
-                message: "The Laundry Door was Opened at 12:14p"
+								source:"alarm.com",
+                message: "The Laundry Door was Opened at 12:14 pm"
             });
             break;
+				case "webhook":
+						msg = JSON.stringify({
+							source: "locative",
+							message: "stuff"
+						});
+						break;
         default:
         case "badformat":
             msg = "This is a badly formatted message which can't be parsed";
@@ -91,3 +102,14 @@ sqs.sendMessage(sqsParams, function(err, data) {
     console.log("Sent to " + queue);
     console.log(data);
 });
+
+function formatAMPM(date) {
+  var hours = date.getHours();
+  var minutes = date.getMinutes();
+  var ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  minutes = minutes < 10 ? '0'+minutes : minutes;
+  var strTime = hours + ':' + minutes + ' ' + ampm;
+  return strTime;
+}
