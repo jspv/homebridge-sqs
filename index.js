@@ -14,7 +14,6 @@ var Service, Characteristic, HomebridgeAPI;
 const DEFAULT_NO_MOTION_TIME = 60,
     DEFAULT_MAX_EVENT_DELAY = 60;
 
-
 module.exports = function(homebridge) {
     console.log("homebridge API version: " + homebridge.version);
     console.log("DEBUG=(", process.env.DEBUG, ")");
@@ -42,6 +41,7 @@ module.exports = function(homebridge) {
     homebridge.registerPlatform("homebridge-sqs", "AWSSQSPlatform", AWSSQSPlatformInit, true);
 };
 
+
 // Platform constructor
 // config may be null
 // api may be null if launched from old homebridge version
@@ -52,6 +52,7 @@ function AWSSQSPlatformInit(log, config, api) {
     this.name = config.name;
     this.config = config;
     this.accessories = [];
+    log.debug("Using SQS Queue:", config.AWSsqsQueueURL);
 
     // Before homebridge sends out event didFinishLaunching, it will invoke
     // configureAccessory method on the plugin instance with the cached plugin, you
@@ -97,6 +98,8 @@ function AWSSQSPlatformInit(log, config, api) {
     }
 
     // Load the amazon SQS options
+    // The in atrributes array speicifies additional queue message attributes
+    // that we wnat to get from AWS
     var sqsoptions = {
         url: config.AWSsqsQueueURL,
         region: config.AWSregion,
@@ -116,7 +119,7 @@ function AWSSQSPlatformInit(log, config, api) {
         var sourceref;
         var queueMessageDateTime, nowDateTime;
         platform.log("Received SQS Message:", message);
-        platform.log.debug("Fullmessage:", fullmessage);
+        // platform.log.debug("Fullmessage:", fullmessage);
         queueMessageDateTime = new Date(parseInt(fullmessage.Attributes.SentTimestamp));
         nowDateTime = new Date();
 
@@ -165,8 +168,12 @@ function AWSSQSPlatformInit(log, config, api) {
             switch (config.sources[sourceref].type) {
                 case "webhook":
                     platform.log.debug("Processing 'webhook' message:");
-                    platform.log.debug("message:  ", msg.message);
-                    platform.log.debug("webhook = %s, message = %s", msg.webhook, msg.message);
+                    platform.log.debug("message:", msg.message);
+                    // platform.log("webhook = %s, message = %s", msg.webhook, msg.message);
+
+                    platform.log("device:", msg.message.device);
+                    platform.log("zone:", msg.message.id);
+                    platform.log("timestamp:", new Date(parseInt(msg.message.timestamp) * 1000));
 
                     for (i = 0; i < config.webhooks.length; i++) {
                         j = 1;
@@ -189,6 +196,7 @@ function AWSSQSPlatformInit(log, config, api) {
                         platform.log("Message does not match any known Accessory");
                         platform.log.debug("Removing message from queue");
                         done(null, true);
+                        return;
                     }
 
                     // For each matching accessory, evaluate if the message time is
@@ -281,8 +289,8 @@ function AWSSQSPlatformInit(log, config, api) {
         platform.log.debug("Removing message from queue");
         done(null, true);
 
-        // Function Definitions for worker
 
+        // Function Definitions for worker
         function parseEndtime(msg) {
 
             // Compare the current time vs. the reported time, the reported time
@@ -342,25 +350,28 @@ function AWSSQSPlatformInit(log, config, api) {
             }
         } // parseEndtime
 
-        // Search accessories for any rexs matching the message, return an array of
+
+        // Search accessories for any rexs or fields matching the message, return an array of
         // Accessory Names and matching state.
         function findMatchingAccessories(msg) {
 
             var i, j; // counters
             var accessorylist = []; // list of matching accessories
 
+            // Important - if the message is proper json, it gets formated as a
+            // json object.  If a rex sitting exists for the accessory, we look
+            // for a matching Rex.  If not, we look for fields.
+
             // See if message matches an accessory's matchrex
+
             accessoryloop:
-                for (i = 0, leni = config.accessories.length; i < leni; i++) {
-                    // Accessories aren't required to have matchrex (e.g. dumb switches)
-                    // JSP - thinking they *should* be required now.
-                    if (!("matchrex" in config.accessories[i])) {
-                        continue accessoryloop;
-                    }
+            for (i = 0, leni = config.accessories.length; i < leni; i++) {
+
+                // See if the accessory is a Matchrex or Matchfield type and if the appropriate
+                // type of message was received.
+                if ("matchrex" in config.accessories[i] && typeof(msg.message) == 'string') {
                     for (j = 0; j < config.accessories[i].matchrex.length; j++) {
-                        platform.log.debug("Comparing message to:",
-                            config.accessories[i].name + "[" + j + "] ",
-                            config.accessories[i].matchrex[j].rex);
+
                         if (msg.message.match(config.accessories[i].matchrex[j].rex)) {
                             platform.log.debug("message matches", config.accessories[i].name + "[" + j + "]");
 
@@ -372,7 +383,38 @@ function AWSSQSPlatformInit(log, config, api) {
                             });
                         }
                     }
+                    // if the message is json, and matchfields - check to see if *all* the fields match
+                } else if ("matchfields" in config.accessories[i] && typeof(msg.message) == 'object') {
+                    for (j = 0; j < config.accessories[i].matchfields.length; j++) {
+
+                        var allfieldsmatched = true;
+                        // Check to see if all the fields exist and match, if not,
+                        // reject the accessory
+                        for (var checkfield in config.accessories[i].matchfields[j].fields) {
+                            platform.log.debug("Field", config.accessories[i].matchfields[j].fields[checkfield], "in msg?:", (checkfield in msg.message));
+
+                            // Unless all the fields match, reject this matchfields block
+                            if (!(checkfield in msg.message && config.accessories[i].matchfields[j].fields[checkfield] == msg.message[checkfield])) {
+                                allfieldsmatched = false;
+                            } else {
+                                platform.log.debug("field contents matched");
+                            }
+                        }
+
+                        platform.log.debug("allfieldsmatched=", allfieldsmatched);
+                        if (allfieldsmatched) {
+                            // push name and matching state to the accessorylist array
+                            accessorylist.push({
+                                "name": config.accessories[i].name,
+                                "state": config.accessories[i].matchfields[j].state,
+                                "index": i
+                            });
+                        }
+                    }
+                } else {
+                    continue accessoryloop;
                 }
+            }
             if (!accessorylist.length) {
                 platform.log.debug("Message doesn't match any known Accessory");
                 return null;
@@ -384,6 +426,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
     } // worker
 }
+
 
 AWSSQSPlatformInit.prototype = {
     accessories: function(callback) {
@@ -467,6 +510,7 @@ AWSSQSPlatformInit.prototype = {
 
     }
 };
+
 
 // Callback used by setTimeout to disable MotionSensor after a set period
 // of time

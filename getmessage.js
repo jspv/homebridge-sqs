@@ -8,7 +8,7 @@ var moment = require('moment-timezone');
 
 // Load configurable settings from from JSON file
 // AWS.config.loadFromPath('./config.json');
-// del const config = require('./config.json');
+config = require('./config.json');
 
 AWS.config.update({
     region: config.region,
