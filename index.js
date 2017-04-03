@@ -85,6 +85,7 @@ function AWSSQSPlatformInit(log, config, api) {
                 // register new accessory
                 switch (config.accessories[i].type) {
                     case "MotionSensor":
+                    case "OccupancySensor":
                     case "Switch":
                         this.addNewAccessory(config.accessories[i].type, config.accessories[i].name);
                         break;
@@ -186,6 +187,7 @@ function AWSSQSPlatformInit(log, config, api) {
                     platform.log.debug("Overrode queueMessageDateTime to ", queueMessageDateTime);
                     /* falls through */
 
+                case "json":
                 case "generic":
                     platform.log.debug("Processing ", config.sources[sourceref].type, " message:");
                     platform.log.debug("message:  ", msg.message);
@@ -256,16 +258,26 @@ function AWSSQSPlatformInit(log, config, api) {
                                 }
                                 break;
 
-                            case "Switch":
+                            case "OccupancySensor":
                                 service =
-                                    platform.accessories[platformAccessoryRef].getService(Service.Switch);
+                                    platform.accessories[platformAccessoryRef].getService(Service.OccupancySensor);
 
                                 platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to", accessorylistitem.state);
 
-                                // state: true = On; false = Off
-                                service.getCharacteristic(Characteristic.On).setValue(accessorylistitem.state);
-                                //service.setCharacteristic(Characteristic.On, false);
+                                // state: true/false
+                                service.getCharacteristic(Characteristic.OccupancyDetected).setValue(accessorylistitem.state);
                                 break;
+
+                                case "Switch":
+                                    service =
+                                        platform.accessories[platformAccessoryRef].getService(Service.Switch);
+
+                                    platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to", accessorylistitem.state);
+
+                                    // state: true = On; false = Off
+                                    service.getCharacteristic(Characteristic.On).setValue(accessorylistitem.state);
+                                    //service.setCharacteristic(Characteristic.On, false);
+                                    break;
 
                             default:
                                 // This should never happen
@@ -362,8 +374,8 @@ function AWSSQSPlatformInit(log, config, api) {
             // json object.  If a rex sitting exists for the accessory, we look
             // for a matching Rex.  If not, we look for fields.
 
-            // See if message matches an accessory's matchrex
-
+            // See if message matches an accessory's matchrex.  Loop through the
+            // accessories and check type and message.
             accessoryloop:
             for (i = 0, leni = config.accessories.length; i < leni; i++) {
 
@@ -383,18 +395,18 @@ function AWSSQSPlatformInit(log, config, api) {
                             });
                         }
                     }
-                    // if the message is json, and matchfields - check to see if *all* the fields match
-                } else if ("matchfields" in config.accessories[i] && typeof(msg.message) == 'object') {
-                    for (j = 0; j < config.accessories[i].matchfields.length; j++) {
+                    // if the message is json, and matchjson - check to see if *all* the fields match
+                } else if ("matchjson" in config.accessories[i] && typeof(msg.message) == 'object') {
+                    for (j = 0; j < config.accessories[i].matchjson.length; j++) {
 
                         var allfieldsmatched = true;
                         // Check to see if all the fields exist and match, if not,
                         // reject the accessory
-                        for (var checkfield in config.accessories[i].matchfields[j].fields) {
-                            platform.log.debug("Field", config.accessories[i].matchfields[j].fields[checkfield], "in msg?:", (checkfield in msg.message));
+                        for (var checkfield in config.accessories[i].matchjson[j].fields) {
+                            platform.log.debug("Field", config.accessories[i].matchjson[j].fields[checkfield], "in msg?:", (checkfield in msg.message));
 
-                            // Unless all the fields match, reject this matchfields block
-                            if (!(checkfield in msg.message && config.accessories[i].matchfields[j].fields[checkfield] == msg.message[checkfield])) {
+                            // Unless all the fields match, reject this matchjson block
+                            if (!(checkfield in msg.message && config.accessories[i].matchjson[j].fields[checkfield] == msg.message[checkfield])) {
                                 allfieldsmatched = false;
                             } else {
                                 platform.log.debug("field contents matched");
@@ -406,7 +418,7 @@ function AWSSQSPlatformInit(log, config, api) {
                             // push name and matching state to the accessorylist array
                             accessorylist.push({
                                 "name": config.accessories[i].name,
-                                "state": config.accessories[i].matchfields[j].state,
+                                "state": config.accessories[i].matchjson[j].state,
                                 "index": i
                             });
                         }
@@ -492,6 +504,20 @@ AWSSQSPlatformInit.prototype = {
                 // switchService.setCharacteristic(Characteristic.On, false);
                 service.getCharacteristic(Characteristic.On).setValue(false);
                 break;
+
+            case "OccupancySensor":
+            // console.log("About to add Occupancy Sensor");
+            service = newAccessory.addService(Service.OccupancySensor, accessoryName);
+            service.getCharacteristic(Characteristic.OccupancyDetected)
+                .on('set', function(value, callback) {
+                    platform.log("(set):", accessoryName, "-> " + value);
+                    callback();
+                });
+
+            // Ensure Sensor  is initialised to Off
+            // service.getCharacteristic(Characteristic.OccupancyDetected).setValue(false);
+            break;
+
 
             default:
                 break;
