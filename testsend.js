@@ -70,12 +70,26 @@ if (type.length) {
                 message: "The Laundry Door was Opened at 12:14 pm"
             });
             break;
-				case "webhook":
+				case "jhome":
 						msg = JSON.stringify({
 							source: "locative",
-							message: "stuff"
-						});
+							message: {
+                                "device_type": "iOS",
+                                "id": "jhome",
+                                "trigger": "enter"
+                            }
+                        });
 						break;
+                        case "jgone":
+                                msg = JSON.stringify({
+                                    source: "locative",
+                                    message: {
+                                        "device_type": "iOS",
+                                        "id": "jhome",
+                                        "trigger": "exit"
+                                    }
+                                });
+                                break;
         default:
         case "badformat":
             msg = "This is a badly formatted message which can't be parsed";
@@ -94,6 +108,7 @@ var sqsParams = {
     MessageDeduplicationId: dedup.toString(),
     QueueUrl: queue
 };
+console.log(sqsParams);
 
 sqs.sendMessage(sqsParams, function(err, data) {
     if (err) {

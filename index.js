@@ -69,10 +69,10 @@ function AWSSQSPlatformInit(log, config, api) {
         this.api.on('didFinishLaunching', function() {
             // Search through accessories in config.json and add any new ones.
             // TODO - remove old ones that aren't in the config.json any longer
-
-            for (var i = 0, leni = config.accessories.length; i < leni; i++) {
+            var i,j;
+            for (i = 0, leni = config.accessories.length; i < leni; i++) {
                 // Check to see if accessory has already been added
-                for (var j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
+                for (j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
                     if (platform.accessories[j].displayName === config.accessories[i].name) {
                         exists = true;
                         platform.accessories[j].updateReachability(true);
@@ -94,6 +94,25 @@ function AWSSQSPlatformInit(log, config, api) {
                         break;
                 }
             }
+
+            // Check to see if the accessory is in the config, if not - unregister
+            // it.  This has the consequence of unregistering devices perhaps
+            // unintentionally if there is an error in thd config, but has the benefit
+            // of not keeping ghost devices around!
+            for (i = 0; i < platform.accessories.length; i++) {
+                // Check to see if accessory has already been added
+                for (j = 0; j < config.accessories.length; j++) {
+                    if (config.accessories[j].name == platform.accessories[i].displayName) {
+                        log.debug("Matched cached accessory and config:", platform.accessories[i].displayName);
+                        break;
+                    }
+                }
+                if (j == config.accessories.length) {
+                    log.debug("Can't find config match for cached accessory", platform.accessories[i].displayName);
+                    platform.api.unregisterPlatformAccessories(undefined, undefined, [platform.accessories[i]]);
+                }
+            }
+
             platform.log(config.name, "Init: done");
         }.bind(this));
     }
@@ -187,7 +206,7 @@ function AWSSQSPlatformInit(log, config, api) {
                     platform.log.debug("Overrode queueMessageDateTime to ", queueMessageDateTime);
                     /* falls through */
 
-                case "json":
+                case "matchjson":
                 case "generic":
                     platform.log.debug("Processing ", config.sources[sourceref].type, " message:");
                     platform.log.debug("message:  ", msg.message);
@@ -395,25 +414,28 @@ function AWSSQSPlatformInit(log, config, api) {
                             });
                         }
                     }
-                    // if the message is json, and matchjson - check to see if *all* the fields match
+                    // if the message is json, and accessor is 'matchjson' - check to see if *all* the fields match
                 } else if ("matchjson" in config.accessories[i] && typeof(msg.message) == 'object') {
                     for (j = 0; j < config.accessories[i].matchjson.length; j++) {
 
                         var allfieldsmatched = true;
                         // Check to see if all the fields exist and match, if not,
-                        // reject the accessory
+                        // reject the accessory.  There may be multiple matchjson objects.
                         for (var checkfield in config.accessories[i].matchjson[j].fields) {
-                            platform.log.debug("Field", config.accessories[i].matchjson[j].fields[checkfield], "in msg?:", (checkfield in msg.message));
+                            platform.log.debug("Field \"" + checkfield + "\" in msg?:", (checkfield in msg.message));
 
                             // Unless all the fields match, reject this matchjson block
-                            if (!(checkfield in msg.message && config.accessories[i].matchjson[j].fields[checkfield] == msg.message[checkfield])) {
+                            if (!(checkfield in msg.message && config.accessories[i].matchjson[j].fields[checkfield] == msg.message[checkfield].trim())) {
+                                var debugfield = msg.message[checkfield] ? msg.message[checkfield].trim() : "undefined";
+                                platform.log.debug("field contents \"" + debugfield + "\" does not match expected content \"" +  config.accessories[i].matchjson[j].fields[checkfield]+"\"");
                                 allfieldsmatched = false;
+                                continue;
                             } else {
-                                platform.log.debug("field contents matched");
+                                platform.log.debug("field contents matched expected \"" + config.accessories[i].matchjson[j].fields[checkfield] + "\"");
                             }
                         }
 
-                        platform.log.debug("allfieldsmatched=", allfieldsmatched);
+                        platform.log.debug("allfieldsmatched =", allfieldsmatched);
                         if (allfieldsmatched) {
                             // push name and matching state to the accessorylist array
                             accessorylist.push({
@@ -435,7 +457,6 @@ function AWSSQSPlatformInit(log, config, api) {
                 return accessorylist;
             }
         } // findMatchingAccessories
-
     } // worker
 }
 
@@ -475,6 +496,7 @@ AWSSQSPlatformInit.prototype = {
 
         platform.log("Adding New ", accessoryType, "Accessory: ", accessoryName);
         uuid = UUIDGen.generate(accessoryName);
+        console.log("name:", accessoryName, "uuid:", uuid);
         var newAccessory = new Accessory(accessoryName, uuid);
 
         switch (accessoryType) {
