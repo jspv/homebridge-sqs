@@ -1,7 +1,7 @@
 {
   "name": "homebridge-sqs",
   "description": "A homebridge plugin that will pull messages from an AWS sqs queue and use them to trigger simulated homekit devices.",
-  "version": "0.2.8",
+  "version": "1.0.0",
   "devDependencies": {},
   "directories": {},
   "license": "MIT",
@@ -22,12 +22,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "moment-timezone": "0.5.11",
+    "moment-timezone": "0.5.13",
     "sqs-worker": "https://github.com/jspv/sqs-worker.git#master"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jspv/homebridge-sqs.git#v2"
+    "url": "git+https://github.com/jspv/homebridge-sqs.git"
   },
   "bugs": {
     "url": "https://github.com/jspv/homebridge-sqs/issues"
