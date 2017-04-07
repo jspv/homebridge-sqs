@@ -1,3 +1,5 @@
+// Not used in the plugin, used for sending test messages 
+
 var AWS = require('aws-sdk');
 // AWS.config.update({accessKeyId: 'KEY', secretAccessKey: 'SECRET'});
 var config = require('./testsend.config.json');

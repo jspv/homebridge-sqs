@@ -1,18 +1,18 @@
 # homebridge-sqs
 
-In looking for a way to use events from outside of my home network to influence homebridge, rather than setting up Internet facing services on my home network to receive outside events, I decided to use the remarkably easy-to-use Amazon SQS service to send messages securely to my homebridge server.
+This plugin watches an AWS SQS queue for messages and uses the messages to trigger simulated homekit devices.  Currently it setup to emulate MotionSensor (MotionDetected events), OccupancySensor (OccupancyDetected events), and Switch (on/off events) devices, I may add more devices at a later date.  The plugin provides a variety of options for matching text and json objects (see *Configuration*).
 
-This allows a consistent way for me to receive events from multiple outside sources (e.g email server, webserver receiving geofence updates, etc.) without needing separate plugins or exposing my homebridge server.
+The plugin listens to a single AWS queue specified in the platform settings.  Messages are expected to be in the format of:
 
-Essentially, this plugin watches an AWS SQS queue for messages and uses the messages to trigger simulated homekit devices.  Currently it setup to emulate MotionSensor (MotionDetected events) and Switch (on/off events) devices, I may add more devices at a later date.
+{ "source": "SOURCE", "message": "actual message" }
 
-The plugin listens to a single AWS queue specified in the platform settings.  It long polls and any messages received are compared against the strings specified in the "matchrex" field of the plugin's accessories.  The first one that matches is triggered as an active MotionSensor.
+Where *source* is the origin of the message and *message* is the message to be processed.  
 
-The message on the queue is expected to be in the format of:
+# Why homebridge-sqs?
 
-{ "datetime" : "TIMESTAMP", "message" : "actual message"}
+In looking for a way to use events from outside of my home network to influence homebridge, rather than setting up Internet facing services on my home network to receive outside events, I decided to use the remarkably easy-to-use Amazon SQS service to send messages securely to my homebridge server without exposing the server to the Internet.
 
-Where TIMESTAMP is in ISO8601 format in GMT.  
+This allows a consistent way to receive events from multiple outside sources (e.g email server, webserver receiving geofence updates, etc.)
 
 # Installation
 
@@ -23,105 +23,235 @@ to watch for. See sample-config.json in this repository for a sample.
 
 # Configuration
 
-config.json Platform and Accessory Fields:
+## Message sources
 
+Sources denote where the messages are coming from and how homebridge-sqs should parse them.  The sources are specified in the config file.  Each source entry in the config file requires a SOURCETYPE.  Currently three types are supported:
+
+Currently three SOURCETYPEs are supported:
+1. *textmessage*: treat the message as text and compare the message against the regular expressions specified in accessories' "matchrex" fields.
+2. *endtime*: treat the message as text, but expect a timestamp at the end of the message in the format of hh:mm am/pm.  homebridge-sqs will process this messaging using the timestamp in the message as the event time rather than the timestamp of the queue message. *Note:* This format is used by alarm.com emails given potential email delays, I decided to use the embedded timestamp.  
+    * the endtime format requires an "endtimeIANA_TZ" field specifying what timezone the timestamp is in.
+3. *jsonmessage*: treat the message as a json object and compare the fields in the object to the fields specified in accessories' "matchjson" fields.
+
+There can be multiple "matchrex" and "matchjson" objects in each accessory, once one is found for a particular accessory it will be processed and the rest ingore (i.e. the accessory will only receive one status change).  If a message matches multiple accessories, they will each receive the appropriate matching status change.  
+
+### sourcefields
+If a source has fields listed in a "sourcefields" array, those specified fields will be expected in addition to the required "source" and "message" fields.  These are not currently used in any way except for validating they exist.  
+
+### Source example:
+```
+"sources": [{
+        "source": "generic",
+        "type": "textmessage"
+    },
+    {
+        "source": "alarm.com",
+        "type": "endtime",
+        "endtimeIANA_TZ": "America/New_York",
+        "sourcefields": [
+            "datetime"
+        ]
+    },
+    {
+        "source": "locative",
+        "type": "jsonmessage"
+    }
+],
+```
+
+## Accessories
+Accessories are the homekit devices to create and trigger based on the queue messages.  
+
+Currently supported are:
+  * Motion Detector
+  * Occupancy Sensor
+  * Switch
+
+*Note*: Accessories are automatically removed from homebridge when removed from config.json
+
+## Accessory Fields
+
+### Required Fields
+  * name: the name of the Accessory
+  * type: MotionSensor or Switch
+
+### Optional Fields
+  * *matchrex*: Array of object containing regular expression patterns ("rex") to look for in the message and the state (true/false) to change the characteristic of the accessory to when the pattern is matched ("state")
+  * *matchjson*: Object containing key value pairs which all have to exist in the message and match exactly and the state (true/false) to change the characteristic of the accessory to when matched.   There can be other fields in the message, only the ones in matchjson will be checked.  
+  * *maxEventDelay*: maximum time in seconds between the timestamp on the sqs message (or the timestamp in the message if using an "endtime" source) and the current time after which the message will be considered "too old" and will not be processed.  
+
+  ### MotionSensor Only:
+  * *noMotionTimer*: seconds of "motion" required before clearing the MotionSensor
+
+### Accessory Example
+```
+{
+    "name": "TestMotion",
+    "type": "MotionSensor",
+    "matchrex": [{
+        "rex": "This is a test message",
+        "state": true
+    }],
+    "noMotionTimer": 20
+},
+{
+    "name": "DummySwitch",
+    "type": "Switch",
+},
+{
+    "name": "TestSwitch",
+    "type": "Switch",
+    "matchrex": [{
+            "rex": "This is a test switch message",
+            "state": true
+        },
+        {
+            "rex": "This is a test switch off message",
+            "state": false
+        }
+    ],
+    "maxEventDelay": 90
+},
+{
+    "name": "Im home",
+    "type": "OccupancySensor",
+    "matchjson": [
+        {
+            "fields": {
+                "device_type": "iOS",
+                "id": "home",
+                "trigger": "enter"
+            },
+            "state": true
+        },
+        {
+            "fields": {
+                "device_type": "iOS",
+                "id": "home",
+                "trigger": "exit"
+            },
+            "state": false
+        }
+    ],
+    "maxEventDelay": 30
+}
+```
 ## Platform Fields
   * "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",]
   * "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY"
   * "AWSregion": "YOUR_QUEUE_REGION"
   * "AWSsqsQueueURL": "https://YOUR_QUEUE_URL"
 
-## Accessory Fields
-
-  * name: the name of the Accessory
-  * type: MotionSensor or Switch
-  * matchrex: Array of patterns ("rex") to look for in the message and the state (true/false) to change the characteristic of the accessory when the pattern is matched ("state")
-  * useendtime: boolean - indicates that there is a timestamp at the end of the message in the format of HH:MM am/pm which should be used as the message timestamp instead of TIMESTAMP at the beginning.  Alarm.com puts these timestamps in their email notifications (one of my sources) to indicate the time the event they are reporting on occurred, figured I'd use theirs for messages in the queue that were sourced from these events.
-  * endtimeIANA_TZ: The timezone the "endtime" stamp is in so that it can be properly converted and compared with the local * timezone to determine how old the event actually is.
-  * maxEventDelay: seconds specifying the maximum amount of time between the current time and either TIMEZONE or the "endtime" timestamp.  If maxEventDelay is exceeded, the message is considered "too old" and not processed.  
-
-  ### MotionSensor Only:
-  * noMotionTimer: seconds of "motion" required before clearing the MotionSensor
-
-Configuration sample:
+## Full configuration example:
 
  ```
- "platforms": [{
-     "platform": "AWSSQSPlatform",
-     "name": "AWS",
-     "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
-     "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY",
-     "AWSregion": "us-east-2",
-     "AWSsqsQueueURL": "https://sqs.us-east-2.amazonaws.com/MYQUEUE/MyQueue.fifo",
-     "accessories": [{
-             "name": "LaundryDoor",
-             "type": "MotionSensor",
-             "matchrex": [{
-                 "rex": "The Laundry Door was Opened at",
-                 "state": true
-             }],
-             "useendtime": true,
-             "endtimeIANA_TZ": "America/New_York"
-         },
-         {
-             "name": "WebsiteLogin",
-             "type": "MotionSensor",
-             "matchrex": [{
-                 "rex": "The Web account was logged into successfully by",
-                 "state": true
-             }],
-             "useendtime": true,
-             "endtimeIANA_TZ": "America/New_York",
-             "noMotionTimer": 30
-         },
-         {
-             "name": "FoyerMotion",
-             "type": "MotionSensor",
-             "matchrex": [{
-                 "rex": "They Foyer Image Motion was Activated",
-                 "state": true
-             }],
-             "useendtime": true,
-             "endtimeIANA_TZ": "America/New_York",
-             "noMotionTimer": 240
-         },
-         {
-             "name": "BarMotion",
-             "type": "MotionSensor",
-             "matchrex": [{
-                 "rex": "The Liquor Motion was Activated",
-                 "state": true
-             }],
-             "useendtime": true,
-             "endtimeIANA_TZ": "America/New_York",
-             "maxEventDelay": 120,
-             "noMotionTimer": 240
-         },
-         {
-             "name": "TestMotion",
-             "type": "MotionSensor",
-             "matchrex": [{
-                 "rex": "This is a test message",
-                 "state": true
-             }],
-             "useendtime": false,
-             "noMotionTimer": 20
-         },
-         {
-             "name": "TestSwitch",
-             "type": "Switch",
-             "matchrex": [{
-                     "rex": "This is a test switch message",
+ {
+     "bridge": {
+         "name": "Homebridge-SQSTEST",
+         "username": "XX:XX:XX:XX:XX:XX",
+         "port": 51826,
+         "pin": "111-11-111"
+     },
+
+     "description": "This is an example configuration for the Script homebridge-sqs plugin",
+
+     "platforms": [{
+         "platform": "AWSSQSPlatform",
+         "name": "AWS",
+         "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
+         "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY+rsSHg8ZfoxVYO",
+         "AWSregion": "us-east-2",
+         "AWSsqsQueueURL": "https://sqs.REGION.amazonaws.com/ACCOUNT/MyHomebridgeQueue.fifo",
+         "sources": [{
+                 "source": "generic",
+                 "type": "textmessage"
+             },
+             {
+                 "source": "alarm.com",
+                 "type": "endtime",
+                 "endtimeIANA_TZ": "America/New_York",
+                 "sourcefields": [
+                     "datetime"
+                 ]
+             },
+             {
+                 "source": "locative",
+                 "type": "jsonmessage"
+             }
+         ],
+         "accessories": [{
+                 "name": "LaundryDoor",
+                 "type": "MotionSensor",
+                 "matchrex": [{
+                     "rex": "The Laundry Door was Opened at",
                      "state": true
-                 },
-                 {
-                     "rex": "This is a test switch off message",
-                     "state": false
-                 }
-             ]
-         }
-     ]
- }]
+                 }]
+             },
+             {
+                 "name": "WebsiteLogin",
+                 "type": "MotionSensor",
+                 "matchrex": [{
+                         "rex": "The Web account was logged into successfully by",
+                         "state": true
+                     }
+                 ],
+                 "maxEventDelay": 5,
+                 "noMotionTimer": 30
+             },
+             {
+                 "name": "TestMotion",
+                 "type": "MotionSensor",
+                 "matchrex": [{
+                     "rex": "This is a test message",
+                     "state": true
+                 }],
+                 "noMotionTimer": 20
+             },
+             {
+                 "name": "DummySwitch",
+                 "type": "Switch"
+             },
+             {
+                 "name": "TestSwitch",
+                 "type": "Switch",
+                 "matchrex": [{
+                         "rex": "This is a test switch message",
+                         "state": true
+                     },
+                     {
+                         "rex": "This is a test switch off message",
+                         "state": false
+                     }
+                 ],
+                 "maxEventDelay": 90
+             },
+             {
+                 "name": "Im home",
+                 "type": "OccupancySensor",
+                 "matchjson": [
+                     {
+                         "fields": {
+                             "device_type": "iOS",
+                             "id": "home",
+                             "trigger": "enter"
+                         },
+                         "state": true
+                     },
+                     {
+                         "fields": {
+                             "device_type": "iOS",
+                             "id": "home",
+                             "trigger": "exit"
+                         },
+                         "state": false
+                     }
+                 ],
+                 "maxEventDelay": 30
+             }
+         ]
+     }]
+ }
+
 ```
 
 ## Credits and apologies
@@ -131,9 +261,6 @@ This is my first attempt at writing a homebridge plugin and close to my first ti
 * Rudders' [homebridge-wemo](https://github.com/rudders/homebridge-wemo), good example code and easy to read.  
 
 ## TODO
-There is still something not right with the MotionSensor events - while homebridge gets them fine; I don't always see them reflected on my iOS devices nor do they trigger automations the way they should.  Switch seems to be fine.  
-
-* Add timeouts (similar to noMotionTimer) for switches - change them back to their default value.  This way they can act similar to motion detectors if I can't figure out why the motion detectors aren't triggering automations correctly. 
 
 ## License
 This work is licensed under the MIT license. See [license](LICENSE) for more details.

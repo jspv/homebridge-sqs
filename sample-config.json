@@ -1,63 +1,55 @@
 {
     "bridge": {
-        "name": "MyHomebridge",
-        "username": "AD:21:7D:EE:CE:30",
+        "name": "Homebridge-SQSTEST",
+        "username": "XX:XX:XX:XX:XX:XX",
         "port": 51826,
-        "pin": "012-34-567"
+        "pin": "111-11-111"
     },
 
-    "description": "This is an example configuration for the homebridge-sqs plugin",
+    "description": "This is an example configuration for the Script homebridge-sqs plugin",
 
     "platforms": [{
         "platform": "AWSSQSPlatform",
         "name": "AWS",
         "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
         "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY",
-        "AWSregion": "us-east-1",
-        "AWSsqsQueueURL": "https://sqs.us-east-2.amazonaws.com/MYQUEUE/MyQueue.fifo",
+        "AWSregion": "us-east-2",
+        "AWSsqsQueueURL": "https://sqs.REGION.amazonaws.com/ACCOUNT/MyHomebridgeQueue.fifo",
+        "sources": [{
+                "source": "generic",
+                "type": "textmessage"
+            },
+            {
+                "source": "alarm.com",
+                "type": "endtime",
+                "endtimeIANA_TZ": "America/New_York",
+                "sourcefields": [
+                    "datetime"
+                ]
+            },
+            {
+                "source": "locative",
+                "type": "jsonmessage"
+            }
+        ],
         "accessories": [{
                 "name": "LaundryDoor",
                 "type": "MotionSensor",
                 "matchrex": [{
                     "rex": "The Laundry Door was Opened at",
                     "state": true
-                }],
-                "useendtime": true,
-                "endtimeIANA_TZ": "America/New_York"
+                }]
             },
             {
                 "name": "WebsiteLogin",
                 "type": "MotionSensor",
                 "matchrex": [{
-                    "rex": "The Web account was logged into successfully by",
-                    "state": true
-                }],
-                "useendtime": true,
-                "endtimeIANA_TZ": "America/New_York",
+                        "rex": "The Web account was logged into successfully by",
+                        "state": true
+                    }
+                ],
+                "maxEventDelay": 5,
                 "noMotionTimer": 30
-            },
-            {
-                "name": "FoyerMotion",
-                "type": "MotionSensor",
-                "matchrex": [{
-                    "rex": "They Foyer Image Motion was Activated",
-                    "state": true
-                }],
-                "useendtime": true,
-                "endtimeIANA_TZ": "America/New_York",
-                "noMotionTimer": 240
-            },
-            {
-                "name": "BarMotion",
-                "type": "MotionSensor",
-                "matchrex": [{
-                    "rex": "The Liquor Motion was Activated",
-                    "state": true
-                }],
-                "useendtime": true,
-                "endtimeIANA_TZ": "America/New_York",
-                "maxEventDelay": 120,
-                "noMotionTimer": 240
             },
             {
                 "name": "TestMotion",
@@ -66,8 +58,11 @@
                     "rex": "This is a test message",
                     "state": true
                 }],
-                "useendtime": false,
                 "noMotionTimer": 20
+            },
+            {
+                "name": "DummySwitch",
+                "type": "Switch"
             },
             {
                 "name": "TestSwitch",
@@ -80,7 +75,31 @@
                         "rex": "This is a test switch off message",
                         "state": false
                     }
-                ]
+                ],
+                "maxEventDelay": 90
+            },
+            {
+                "name": "Im home",
+                "type": "OccupancySensor",
+                "matchjson": [
+                    {
+                        "fields": {
+                            "device_type": "iOS",
+                            "id": "home",
+                            "trigger": "enter"
+                        },
+                        "state": true
+                    },
+                    {
+                        "fields": {
+                            "device_type": "iOS",
+                            "id": "home",
+                            "trigger": "exit"
+                        },
+                        "state": false
+                    }
+                ],
+                "maxEventDelay": 30
             }
         ]
     }]

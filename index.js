@@ -206,8 +206,8 @@ function AWSSQSPlatformInit(log, config, api) {
                     platform.log.debug("Overrode queueMessageDateTime to ", queueMessageDateTime);
                     /* falls through */
 
-                case "matchjson":
-                case "generic":
+                case "jsonmessage":
+                case "textmessage":
                     platform.log.debug("Processing ", config.sources[sourceref].type, " message:");
                     platform.log.debug("message:  ", msg.message);
 
@@ -414,7 +414,7 @@ function AWSSQSPlatformInit(log, config, api) {
                             });
                         }
                     }
-                    // if the message is json, and accessor is 'matchjson' - check to see if *all* the fields match
+                    // if the message is json, and accessor is 'jsonmessage' - check to see if *all* the fields match
                 } else if ("matchjson" in config.accessories[i] && typeof(msg.message) == 'object') {
                     for (j = 0; j < config.accessories[i].matchjson.length; j++) {
 
