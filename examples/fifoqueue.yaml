@@ -1,0 +1,178 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Homebridge-SQS FIFO queue"
+
+#TODO - Add homebridge IAM user and map to the appropriate policy.  Doing this
+# Manually now.
+
+Parameters:
+  QueueRegion:
+    Description: Region to create the fifo queues in
+    Type: String
+    Default: us-east-2
+
+Resources:
+  HomebridgeSQSTestQueueResource:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: HomebridgeTestQueue.fifo
+      ContentBasedDeduplication: true
+      FifoQueue: true
+      # Use long polling
+      ReceiveMessageWaitTimeSeconds: 20
+
+  HomebridgeSQSProdQueueResource:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: HomebridgeProdQueue.fifo
+      ContentBasedDeduplication: true
+      FifoQueue: true
+      # Use long polling
+      ReceiveMessageWaitTimeSeconds: 20
+
+  # Creating a standalone policy so I can assign it to both an
+  # IAM role and to IAM users - generally I would attach this policy to the IAM user
+  # specified assigned in the homebridge-sqs plugin.
+  HomebridgeSQSWorkerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Allows receive and delete for production queues; receive, delete, and send for test queues.
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sqs:DeleteMessage'
+              - 'sqs:ReceiveMessage'
+            Resource:
+              Fn::GetAtt:
+                - HomebridgeSQSProdQueueResource
+                - Arn
+          - Effect: Allow
+            Action:
+              - 'sqs:DeleteMessage'
+              - 'sqs:ReceiveMessage'
+              - 'sqs:SendMessage'
+            Resource:
+              Fn::GetAtt:
+                - HomebridgeSQSTestQueueResource
+                - Arn
+
+  # This policy can be assigned to any sender processes/role (ec2 instance role,
+  # apigateway, etc.)
+
+  HomebridgeSQSSenderPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: Allows Sending to Homebridge queues
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sqs:SendMessage'
+            Resource:
+              - Fn::GetAtt:
+                - HomebridgeSQSProdQueueResource
+                - Arn
+              - Fn::GetAtt:
+                - HomebridgeSQSTestQueueResource
+                - Arn
+
+  # Create IAM Role with the Policy which can later be assumed by IAM users
+  # or instances
+  HomebridgeSQSWorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              Service: apigateway.amazonaws.com
+      ManagedPolicyArns:
+        - !Ref HomebridgeSQSWorkerPolicy
+
+  HomebridgeSQSSenderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              Service: apigateway.amazonaws.com
+      ManagedPolicyArns:
+        - !Ref HomebridgeSQSSenderPolicy
+
+# Output/export key variables
+Outputs:
+
+  HomebridgeTestQueueURL:
+    Description: "URL of newly created Test Homebridge SQS Queue"
+    Value:
+      Ref: HomebridgeSQSTestQueueResource
+    Export:
+      Name: HomebridgeTestQueueURL
+
+  HomebridgeProdQueueURL:
+    Description: "URL of newly created Prod Homebridge SQS Queue"
+    Value:
+      Ref: HomebridgeSQSProdQueueResource
+    Export:
+      Name: HomebridgeProdQueueURL
+
+  HomebridgeTestQueueARNPath:
+    Description: "ARN/Path of Newly Created Test Queue"
+    Value:
+      Fn::Join:
+        - '/'
+        - - !Ref AWS::AccountId
+          - !GetAtt HomebridgeSQSTestQueueResource.QueueName
+    Export:
+      Name: HomebridgeTestQueueARNPath
+
+  HomebridgeProdQueueARNPath:
+    Description: "ARN/Path of newly created SQS Prod Queue"
+    Value:
+      Fn::Join:
+        - '/'
+        - - !Ref AWS::AccountId
+          - !GetAtt HomebridgeSQSProdQueueResource.QueueName
+    Export:
+      Name: HomebridgeProdQueueARN
+
+  HomebridgeTestQueueName:
+    Description: "Name newly created Test SQS Queue"
+    Value:
+      Fn::GetAtt:
+        - HomebridgeSQSTestQueueResource
+        - QueueName
+    Export:
+      Name: HomebridgeTestQueueName
+
+  HomebridgeProdQueueName:
+    Description: "Name newly created Prod SQS Queue"
+    Value:
+      Fn::GetAtt:
+        - HomebridgeSQSProdQueueResource
+        - QueueName
+    Export:
+      Name: HomebridgeProdQueueName
+
+  HomebridgeSQSSenderRoleArn:
+    Description: Role allowing sending to Homebridge SQS queues
+    Value: !GetAtt HomebridgeSQSSenderRole.Arn
+    Export:
+      Name: HomebridgeSQSSenderRoleArn
+
+  # Exporting polcies as well so they can be attached to instance roles
+  HomebridgeSQSSenderPolicyArn:
+    Description: Managed Policy allowing sending to Homebridge SQS queues
+    Value: !Ref HomebridgeSQSSenderPolicy
+    Export:
+      Name: HomebridgeSQSSenderPolicyArn

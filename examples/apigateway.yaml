@@ -1,0 +1,180 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Homebridge-SQS APIGateway"
+
+# TODO - Chedk to see if IAM policy on the gateway to be able to log properly to CloudWatch
+
+Mappings:
+  StaticVariables:
+    Test:
+      StageName: t
+    Prod:
+      StageName: p
+
+Resources:
+  # Create the Gatewawy
+  HomebridgeSQSApi:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name:
+        Ref: AWS::StackName
+
+
+  #  Creates a stage for an Amazon API Gateway (API Gateway) deployment.
+  HomebridgeSQSProdApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId:
+        Ref: HomebridgeSQSProdApiDeployment
+      Description:
+        "Prod stage - uses the prod SQS queue"
+      MethodSettings:
+        - ResourcePath: ''
+          HttpMethod: "*/*"
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+          MetricsEnabled: false
+      RestApiId:
+        Ref: HomebridgeSQSApi
+      StageName:
+        Fn::FindInMap:
+          - StaticVariables
+          - Prod
+          - StageName
+
+  # Deploys an Amazon API Gateway (API Gateway) RestApi resource to a stage so that clients can call the API over the Internet. The stage acts as an environment.
+
+  HomebridgeSQSProdApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Ref: HomebridgeSQSApi
+    DependsOn:
+      - HomebridgeSQSApi
+      - GeofenceProdPostMethod
+
+  #
+  # Define the partitucular resources we want to expose
+  #
+
+  # /geofencet - test queue for homebridge
+  GeofenceTestResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+        - HomebridgeSQSApi
+        - RootResourceId
+      PathPart: geot
+      RestApiId:
+        Ref: HomebridgeSQSApi
+
+  # /geofencep - prod queue for homebridge
+  GeofenceProdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+        - HomebridgeSQSApi
+        - RootResourceId
+      PathPart: geop
+      RestApiId:
+        Ref: HomebridgeSQSApi
+
+  GeofenceTestPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      ResourceId:
+        Ref: GeofenceTestResource
+      RestApiId:
+        Ref: HomebridgeSQSApi
+      HttpMethod: POST
+      Integration:
+        Credentials: !MyCmd(aws cloudformation describe-stacks --region us-east-2 --stack-name Homebridge-SQSQueueStack | jq '.Stacks[].Outputs[] | select (.OutputKey == "HomebridgeSQSSenderRoleArn") | .OutputValue')
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            SelectionPattern: ''
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        Type: AWS
+        Uri:
+          Fn::Join:
+          - '/'
+          - - Fn::Join:
+              - ':'
+              - - 'arn:aws:apigateway'
+                - 'us-east-2'
+                - 'sqs:path'
+            - !MyCmd(aws cloudformation describe-stacks --region us-east-2 --stack-name Homebridge-SQSQueueStack | jq '.Stacks[].Outputs[] | select (.OutputKey == "HomebridgeTestQueueARNPath") | .OutputValue')
+        RequestTemplates:
+          "application/x-www-form-urlencoded": "!MyCmd(cat mappingtemplate.vm | sed -e 's/\"/\\\"/g' -e 's/^[ \t]*//' -e  's/$/\\n/' | tr -d '\n'; (exit ${PIPESTATUS}))"
+        RequestParameters:
+          integration.request.header.Content-Type: "'application/x-www-form-urlencoded'"
+      MethodResponses:
+        - StatusCode: '200'
+
+  GeofenceProdPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      ResourceId:
+        Ref: GeofenceProdResource
+      RestApiId:
+        Ref: HomebridgeSQSApi
+      HttpMethod: POST
+      Integration:
+        Credentials: !MyCmd(aws cloudformation describe-stacks --region us-east-2 --stack-name Homebridge-SQSQueueStack | jq '.Stacks[].Outputs[] | select (.OutputKey == "HomebridgeSQSSenderRoleArn") | .OutputValue')
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+            SelectionPattern: ''
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        Type: AWS
+        Uri:
+          Fn::Join:
+          - '/'
+          - - Fn::Join:
+              - ':'
+              - - 'arn:aws:apigateway'
+                - 'us-east-2'
+                - 'sqs:path'
+            - !MyCmd(aws cloudformation describe-stacks --region us-east-2 --stack-name Homebridge-SQSQueueStack | jq '.Stacks[].Outputs[] | select (.OutputKey == "HomebridgeProdQueueARNPath") | .OutputValue')
+        RequestTemplates:
+          "application/x-www-form-urlencoded": "!MyCmd(cat mappingtemplate.vm | sed -e 's/\"/\\\"/g' -e 's/^[ \t]*//' -e  's/$/\\n/' | tr -d '\n'; (exit ${PIPESTATUS}))"
+        RequestParameters:
+          integration.request.header.Content-Type: "'application/x-www-form-urlencoded'"
+      MethodResponses:
+        - StatusCode: '200'
+
+  # This submits a creation request for the certificate ***WARNING***
+  # The request will need to be email approved and the stack will not
+  # complete building until the request is approved.
+  #
+  # After approval (and creation), in  "Custom Domain Names" in the console,
+  # a mapping needs to be created for the domain name, the certifitate, and
+  # to the API Gateway (TODO: Find a way to do this in the formation).  This
+  # will provide a cloudfront mapping.  This can take up to 40m to finish.
+  #
+  # Lastly, in Route53, need to create an alias for the domain name to the
+  # cloudfront mapping.  This can also take a while to finish.
+  #
+  HomebridgeSQSProdCertificate:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: hapi.trashcan.org
+      DomainValidationOptions:
+        - DomainName: hapi.trashcan.org
+          ValidationDomain: trashcan.org
+
+Outputs:
+  GeofenceTest:
+    Description:
+      Method to submit geofence data to the TEST queue.  POST, urlencoded
+    Value:
+      Fn::Sub: https://${HomebridgeSQSApi}.execute-api.${AWS::Region}.amazonaws.com/${HomebridgeSQSProdApiStage}/geot/
+  GeofenceProd:
+    Description:
+      Method to submit geofence data to the Prod queue.  POST, urlencoded
+    Value:
+      Fn::Sub: https://${HomebridgeSQSApi}.execute-api.${AWS::Region}.amazonaws.com/${HomebridgeSQSProdApiStage}/geop/

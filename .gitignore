@@ -5,9 +5,9 @@
 
 # Make sure to not commit my config.json as it has secret keys. 
 config.json
-testsend.config.json
 send-prod.sh
 send-test.sh
 node_modules/
 dothomebridge/
 mytest/
+examples/testsend.config.json
