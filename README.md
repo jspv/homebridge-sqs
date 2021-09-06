@@ -254,6 +254,13 @@ Currently supported are:
 
 ```
 
+## Suggestions and Testing
+I use SQS FIFO (First In First Out) queues, this will probably work just fine with typical queues, but it's what I wanted to work with.  FIFO queues can have content-based deduplication which means repetative messages with exactly the same content within the deduplication interval (5 minutes) will be ignored.  he way to get around this (and general good practice) is to set a *--message-deduplication-id* for each unique message.  I use the following to send messages to the ques
+
+```
+aws sqs send-message --region us-east-2 --queue-url MYQUEUEURL '{ "source": "generic", "message": "This is a test switch off message"}' --message-deduplication-id `date +%s` --message-group-id 1
+```
+
 ## Credits and apologies
 This is my first attempt at writing a homebridge plugin and close to my first time using node.js/javascript.  Many plugins and stackoverflow pages were read as I looked up different ways to solve problems, unfortunately too many to note - but in particular:
 * Clearly nfarina's [homebridge] (https://github.com/nfarina/homebridge) which makes this all possible and in particular the sample platform code.

@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "moment-timezone": ">=0.5.13",
-    "sqs-worker": ">=0.0.2"
+    "sqs-worker": "jspv/sqs-worker"
   },
   "repository": {
     "type": "git",

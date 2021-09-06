@@ -14,7 +14,7 @@ var Service, Characteristic, HomebridgeAPI;
 const DEFAULT_NO_MOTION_TIME = 60,
     DEFAULT_MAX_EVENT_DELAY = 60;
 
-module.exports = function(homebridge) {
+module.exports = function (homebridge) {
     console.log("homebridge API version: " + homebridge.version);
     console.log("DEBUG=(", process.env.DEBUG, ")");
 
@@ -66,10 +66,10 @@ function AWSSQSPlatformInit(log, config, api) {
         // Platform Plugin should only register new accessory that doesn't exist
         //  in homebridge after this event or start discover new accessories
 
-        this.api.on('didFinishLaunching', function() {
+        this.api.on('didFinishLaunching', function () {
             // Search through accessories in config.json and add any new ones.
             // TODO - remove old ones that aren't in the config.json any longer
-            var i,j;
+            var i, j;
             for (i = 0, leni = config.accessories.length; i < leni; i++) {
                 // Check to see if accessory has already been added
                 for (j = 0, exists = false, lenj = platform.accessories.length; j < lenj; j++) {
@@ -169,7 +169,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
             // // Verify the source is known and if the there are required fields
             if ("sourcefields" in config.sources[sourceref]) {
-                config.sources[sourceref].sourcefields.forEach(function(field) {
+                config.sources[sourceref].sourcefields.forEach(function (field) {
                     if (!(field in msg)) {
                         _throw("Missing required field " + field + " from source " + msg.source);
                     }
@@ -204,7 +204,7 @@ function AWSSQSPlatformInit(log, config, api) {
                     // override queueMessageDateTime with endtime
                     queueMessageDateTime = parseEndtime(msg);
                     platform.log.debug("Overrode queueMessageDateTime to ", queueMessageDateTime);
-                    /* falls through */
+                /* falls through */
 
                 case "jsonmessage":
                 case "textmessage":
@@ -238,7 +238,7 @@ function AWSSQSPlatformInit(log, config, api) {
                         }
 
                         // All looks good, trigger the sensor state
-                        platform.log(">>>>>> doing stuff <<<<<<<");
+                        platform.log("Processing message for ", accessory.name);
 
                         var service, platformAccessoryRef;
 
@@ -287,16 +287,16 @@ function AWSSQSPlatformInit(log, config, api) {
                                 service.getCharacteristic(Characteristic.OccupancyDetected).setValue(accessorylistitem.state);
                                 break;
 
-                                case "Switch":
-                                    service =
-                                        platform.accessories[platformAccessoryRef].getService(Service.Switch);
+                            case "Switch":
+                                service =
+                                    platform.accessories[platformAccessoryRef].getService(Service.Switch);
 
-                                    platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to", accessorylistitem.state);
+                                platform.log.debug("Setting", accessory.type, platform.accessories[platformAccessoryRef].displayName, "to", accessorylistitem.state);
 
-                                    // state: true = On; false = Off
-                                    service.getCharacteristic(Characteristic.On).setValue(accessorylistitem.state);
-                                    //service.setCharacteristic(Characteristic.On, false);
-                                    break;
+                                // state: true = On; false = Off
+                                service.getCharacteristic(Characteristic.On).setValue(accessorylistitem.state);
+                                //service.setCharacteristic(Characteristic.On, false);
+                                break;
 
                             default:
                                 // This should never happen
@@ -400,7 +400,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
                 // See if the accessory is a Matchrex or Matchfield type and if the appropriate
                 // type of message was received.
-                if ("matchrex" in config.accessories[i] && typeof(msg.message) == 'string') {
+                if ("matchrex" in config.accessories[i] && typeof (msg.message) == 'string') {
                     for (j = 0; j < config.accessories[i].matchrex.length; j++) {
 
                         if (msg.message.match(config.accessories[i].matchrex[j].rex)) {
@@ -415,7 +415,7 @@ function AWSSQSPlatformInit(log, config, api) {
                         }
                     }
                     // if the message is json, and accessor is 'jsonmessage' - check to see if *all* the fields match
-                } else if ("matchjson" in config.accessories[i] && typeof(msg.message) == 'object') {
+                } else if ("matchjson" in config.accessories[i] && typeof (msg.message) == 'object') {
                     for (j = 0; j < config.accessories[i].matchjson.length; j++) {
 
                         var allfieldsmatched = true;
@@ -427,7 +427,7 @@ function AWSSQSPlatformInit(log, config, api) {
                             // Unless all the fields match, reject this matchjson block
                             if (!(checkfield in msg.message && config.accessories[i].matchjson[j].fields[checkfield] == msg.message[checkfield].trim())) {
                                 var debugfield = msg.message[checkfield] ? msg.message[checkfield].trim() : "undefined";
-                                platform.log.debug("field contents \"" + debugfield + "\" does not match expected content \"" +  config.accessories[i].matchjson[j].fields[checkfield]+"\"");
+                                platform.log.debug("field contents \"" + debugfield + "\" does not match expected content \"" + config.accessories[i].matchjson[j].fields[checkfield] + "\"");
                                 allfieldsmatched = false;
                                 continue;
                             } else {
@@ -462,7 +462,7 @@ function AWSSQSPlatformInit(log, config, api) {
 
 
 AWSSQSPlatformInit.prototype = {
-    accessories: function(callback) {
+    accessories: function (callback) {
         var platform = this;
         platform.log(">>>>> accessories");
         callback();
@@ -471,7 +471,7 @@ AWSSQSPlatformInit.prototype = {
     // Function invoked when homebridge tries to restore cached accessory
     // Developer can configure accessory at here (like setup event handler)
     // Update current value
-    configureAccessory: function(accessory) {
+    configureAccessory: function (accessory) {
         this.log("Configuring Accessory", accessory.displayName);
         var platform = this;
 
@@ -481,7 +481,7 @@ AWSSQSPlatformInit.prototype = {
         // accessory.reachable = true;
         accessory.reachable = false;
 
-        accessory.on('identify', function(paired, callback) {
+        accessory.on('identify', function (paired, callback) {
             platform.log(accessory.displayName, "Identify!!!");
             callback();
         }.bind(this));
@@ -489,7 +489,7 @@ AWSSQSPlatformInit.prototype = {
         platform.accessories.push(accessory);
     },
 
-    addNewAccessory: function(accessoryType, accessoryName) {
+    addNewAccessory: function (accessoryType, accessoryName) {
         var platform = this;
         var service;
         var uuid;
@@ -504,7 +504,7 @@ AWSSQSPlatformInit.prototype = {
                 service = newAccessory.addService(Service.MotionSensor, accessoryName);
 
                 service.getCharacteristic(Characteristic.MotionDetected)
-                    .on('set', function(value, callback) {
+                    .on('set', function (value, callback) {
                         platform.log("(set):", accessoryName, "-> " + value);
                         callback();
                     });
@@ -517,7 +517,7 @@ AWSSQSPlatformInit.prototype = {
                 // console.log("About to add Switch");
                 service = newAccessory.addService(Service.Switch, accessoryName);
                 service.getCharacteristic(Characteristic.On)
-                    .on('set', function(value, callback) {
+                    .on('set', function (value, callback) {
                         platform.log("(set):", accessoryName, "-> " + value);
                         callback();
                     });
@@ -528,24 +528,24 @@ AWSSQSPlatformInit.prototype = {
                 break;
 
             case "OccupancySensor":
-            // console.log("About to add Occupancy Sensor");
-            service = newAccessory.addService(Service.OccupancySensor, accessoryName);
-            service.getCharacteristic(Characteristic.OccupancyDetected)
-                .on('set', function(value, callback) {
-                    platform.log("(set):", accessoryName, "-> " + value);
-                    callback();
-                });
+                // console.log("About to add Occupancy Sensor");
+                service = newAccessory.addService(Service.OccupancySensor, accessoryName);
+                service.getCharacteristic(Characteristic.OccupancyDetected)
+                    .on('set', function (value, callback) {
+                        platform.log("(set):", accessoryName, "-> " + value);
+                        callback();
+                    });
 
-            // Ensure Sensor  is initialised to Off
-            // service.getCharacteristic(Characteristic.OccupancyDetected).setValue(false);
-            break;
+                // Ensure Sensor  is initialised to Off
+                // service.getCharacteristic(Characteristic.OccupancyDetected).setValue(false);
+                break;
 
 
             default:
                 break;
         }
 
-        newAccessory.on('identify', function(paired, callback) {
+        newAccessory.on('identify', function (paired, callback) {
             platform.log("(identify):", accessoryName, " Identify!!!");
             callback();
         }.bind(this));
