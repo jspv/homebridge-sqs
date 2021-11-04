@@ -159,7 +159,7 @@ Currently supported are:
          "platform": "AWSSQSPlatform",
          "name": "AWS",
          "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",
-         "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY+rsSHg8ZfoxVYO",
+         "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY",
          "AWSregion": "us-east-2",
          "AWSsqsQueueURL": "https://sqs.REGION.amazonaws.com/ACCOUNT/MyHomebridgeQueue.fifo",
          "sources": [{
