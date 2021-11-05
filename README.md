@@ -137,7 +137,7 @@ Currently supported are:
 }
 ```
 ## Platform Fields
-  * "AWSaccessKeyId": "MY_AWS_ACCESS_KEY",]
+  * "AWSaccessKeyId": "MY_AWS_ACCESS_KEY"
   * "AWSsecretAccessKey": "MY_SECRET_ACCESS_KEY"
   * "AWSregion": "YOUR_QUEUE_REGION"
   * "AWSsqsQueueURL": "https://YOUR_QUEUE_URL"
@@ -258,7 +258,7 @@ Currently supported are:
 I use SQS FIFO (First In First Out) queues, this will probably work just fine with typical queues, but it's what I wanted to work with.  FIFO queues can have content-based deduplication which means repetative messages with exactly the same content within the deduplication interval (5 minutes) will be ignored.  he way to get around this (and general good practice) is to set a *--message-deduplication-id* for each unique message.  I use the following to send messages to the ques
 
 ```
-aws sqs send-message --region us-east-2 --queue-url MYQUEUEURL '{ "source": "generic", "message": "This is a test switch off message"}' --message-deduplication-id `date +%s` --message-group-id 1
+aws sqs send-message --region us-east-2 --queue-url MYQUEUEURL --message-body '{ "source": "generic", "message": "This is a test switch off message"}' --message-deduplication-id `date +%s` --message-group-id 1
 ```
 
 ## Credits and apologies
