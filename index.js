@@ -2,9 +2,7 @@
 var moment = require('moment-timezone');
 
 // setup access to the queue
-// uncomment below to use debug version of sqs-worker
-SQSWorker = require('sqs-worker');
-// var SQSWorker = require('sqs-worker');
+SQSWorker = require('./lib/sqs-worker');
 
 var Service, Characteristic, HomebridgeAPI;
 
